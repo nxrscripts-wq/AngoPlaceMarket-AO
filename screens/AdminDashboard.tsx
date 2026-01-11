@@ -1,9 +1,10 @@
 
-import React, { useState } from 'react';
-import { 
-  ArrowLeft, BarChart3, Users, Package, ShoppingCart, DollarSign, 
-  TrendingUp, Activity, Plus, Key, Edit2, ShieldAlert, CheckCircle, XCircle, Clock, Eye, MessageSquare
+import React, { useState, useEffect } from 'react';
+import {
+  ArrowLeft, BarChart3, Users, Package, ShoppingCart, DollarSign,
+  TrendingUp, Activity, Plus, Key, Edit2, ShieldAlert, CheckCircle, XCircle, Clock, Eye, MessageSquare, Loader2
 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { User, UserRole, AdminAction, Product, ProductStatus } from '../types';
 
@@ -24,64 +25,83 @@ const salesData = [
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, user }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'review' | 'logs' | 'management'>('overview');
-  
+
   const isSuperAdmin = user.is_super_admin && user.role === UserRole.SUPER_ADMIN && user.email === "elviino.nxrscripts@gmail.com";
 
-  // Mock pending products
-  const [pendingProducts, setPendingProducts] = useState<Product[]>([
-    {
-      id: 'p-new-1',
-      name: 'Gerador Honda 3KVA',
-      price: 250000,
-      image: 'https://picsum.photos/seed/honda/400/400',
-      category: 'Eletrónicos',
-      rating: 0,
-      sales: 0,
-      isInternational: false,
-      status: ProductStatus.PENDENTE,
-      submittedBy: 'user-789',
-      sellerId: 's1',
-      description: 'Gerador Honda potente e silencioso, ideal para residências em Angola.',
-      // Added missing stock property to fix interface error
-      stock: 5
-    },
-    {
-      id: 'p-new-2',
-      name: 'Kit Painel Solar 200W',
-      price: 120000,
-      image: 'https://picsum.photos/seed/solar/400/400',
-      category: 'Energia',
-      rating: 0,
-      sales: 0,
-      isInternational: true,
-      status: ProductStatus.PENDENTE,
-      submittedBy: 'user-444',
-      sellerId: 's2',
-      description: 'Kit de energia solar completo para iluminar a sua casa de forma sustentável.',
-      // Added missing stock property to fix interface error
-      stock: 12
+  const [pendingProducts, setPendingProducts] = useState<Product[]>([]);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+
+  useEffect(() => {
+    fetchPendingProducts();
+  }, []);
+
+  const fetchPendingProducts = async () => {
+    setIsLoadingProducts(true);
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('status', ProductStatus.PENDENTE)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const mappedProducts: Product[] = (data || []).map(p => ({
+        id: p.id,
+        name: p.name,
+        price: p.price,
+        image: p.image,
+        category: p.category,
+        rating: p.rating || 0,
+        sales: p.sales || 0,
+        isInternational: p.is_international || false,
+        status: p.status,
+        submittedBy: p.seller_id,
+        sellerId: p.seller_id,
+        description: p.description,
+        stock: p.stock
+      }));
+
+      setPendingProducts(mappedProducts);
+    } catch (err: any) {
+      console.error('Error fetching pending products:', err);
+    } finally {
+      setIsLoadingProducts(false);
     }
-  ]);
+  };
 
   const [auditLogs, setAuditLogs] = useState<AdminAction[]>([]);
 
-  const handleReview = (productId: string, action: 'APPROVE' | 'REJECT', feedback?: string) => {
+  const handleReview = async (productId: string, action: 'APPROVE' | 'REJECT', feedback?: string) => {
     const product = pendingProducts.find(p => p.id === productId);
     if (!product) return;
 
-    // Log the action
-    const newAction: AdminAction = {
-      id: Date.now().toString(),
-      adminId: user.id,
-      adminName: user.name,
-      action: action === 'APPROVE' ? 'APPROVE_PRODUCT' : 'REJECT_PRODUCT',
-      targetId: productId,
-      timestamp: new Date().toISOString(),
-      details: `${action === 'APPROVE' ? 'Aprovado' : 'Rejeitado'}: ${product.name}. Obs: ${feedback || 'Sem comentários'}`
-    };
+    try {
+      const newStatus = action === 'APPROVE' ? ProductStatus.PUBLICADO : ProductStatus.REJEITADO;
 
-    setAuditLogs([newAction, ...auditLogs]);
-    setPendingProducts(pendingProducts.filter(p => p.id !== productId));
+      const { error } = await supabase
+        .from('products')
+        .update({ status: newStatus })
+        .eq('id', productId);
+
+      if (error) throw error;
+
+      // Log the action
+      const newAction: AdminAction = {
+        id: Date.now().toString(),
+        adminId: user.id,
+        adminName: user.name,
+        action: action === 'APPROVE' ? 'APPROVE_PRODUCT' : 'REJECT_PRODUCT',
+        targetId: productId,
+        timestamp: new Date().toISOString(),
+        details: `${action === 'APPROVE' ? 'Aprovado' : 'Rejeitado'}: ${product.name}. Obs: ${feedback || 'Sem comentários'}`
+      };
+
+      setAuditLogs([newAction, ...auditLogs]);
+      setPendingProducts(pendingProducts.filter(p => p.id !== productId));
+    } catch (err: any) {
+      console.error('Error updating product status:', err);
+    }
   };
 
   const tabs = [
@@ -150,28 +170,28 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, user }) => {
                 { icon: ShieldAlert, label: 'Incidentes', value: '0', color: '#FFD700' },
               ].map((stat, i) => (
                 <div key={i} className="bg-[#0B0B0B] p-5 rounded-3xl border border-white/5 hover:border-white/10 transition-colors">
-                   <div className="p-3 rounded-2xl bg-white/5 text-white/50 w-fit mb-4">
-                     <stat.icon size={20} />
-                   </div>
-                   <p className="text-[10px] text-white/30 font-black uppercase tracking-widest">{stat.label}</p>
-                   <h4 className="text-2xl font-black mt-1" style={{color: stat.color}}>{stat.value}</h4>
+                  <div className="p-3 rounded-2xl bg-white/5 text-white/50 w-fit mb-4">
+                    <stat.icon size={20} />
+                  </div>
+                  <p className="text-[10px] text-white/30 font-black uppercase tracking-widest">{stat.label}</p>
+                  <h4 className="text-2xl font-black mt-1" style={{ color: stat.color }}>{stat.value}</h4>
                 </div>
               ))}
             </div>
 
             <div className="bg-[#0B0B0B] p-6 rounded-3xl border border-white/5 h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={salesData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1A1A1A" vertical={false} />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#444', fontSize: 10}} />
-                    <YAxis axisLine={false} tickLine={false} tick={{fill: '#444', fontSize: 10}} />
-                    <Tooltip 
-                      contentStyle={{backgroundColor: '#000', border: 'none', borderRadius: '12px'}} 
-                      itemStyle={{color: '#FFD700', fontWeight: 'bold'}}
-                    />
-                    <Bar dataKey="sales" fill="#FFD700" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={salesData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1A1A1A" vertical={false} />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#444', fontSize: 10 }} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#444', fontSize: 10 }} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#000', border: 'none', borderRadius: '12px' }}
+                    itemStyle={{ color: '#FFD700', fontWeight: 'bold' }}
+                  />
+                  <Bar dataKey="sales" fill="#FFD700" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           </div>
         )}
@@ -203,13 +223,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, user }) => {
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-2 mt-6">
-                        <button 
+                        <button
                           onClick={() => handleReview(product.id, 'APPROVE')}
                           className="flex items-center gap-2 px-6 py-3 bg-[#FFD700] text-black rounded-xl font-black uppercase text-[10px] tracking-widest hover:scale-105 transition-transform"
                         >
                           <CheckCircle size={14} /> Aprovar Publicação
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleReview(product.id, 'REJECT', 'Produto não cumpre os requisitos.')}
                           className="flex items-center gap-2 px-6 py-3 bg-[#C00000] text-white rounded-xl font-black uppercase text-[10px] tracking-widest hover:scale-105 transition-transform"
                         >
@@ -231,68 +251,68 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, user }) => {
           <div className="space-y-6">
             <h2 className="text-3xl font-black italic uppercase tracking-tighter">Histórico de Ações</h2>
             <div className="bg-[#0B0B0B] rounded-3xl border border-white/5 overflow-hidden">
-               <table className="w-full text-left">
-                  <thead className="bg-white/5">
-                    <tr className="text-[10px] font-black uppercase text-white/30 tracking-widest">
-                       <th className="p-4">Data/Hora</th>
-                       <th className="p-4">Admin</th>
-                       <th className="p-4">Evento</th>
-                       <th className="p-4">Alvo</th>
+              <table className="w-full text-left">
+                <thead className="bg-white/5">
+                  <tr className="text-[10px] font-black uppercase text-white/30 tracking-widest">
+                    <th className="p-4">Data/Hora</th>
+                    <th className="p-4">Admin</th>
+                    <th className="p-4">Evento</th>
+                    <th className="p-4">Alvo</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {auditLogs.length === 0 ? (
+                    <tr><td colSpan={4} className="p-10 text-center text-white/20 text-xs italic">Nenhuma ação administrativa registada recentemente</td></tr>
+                  ) : auditLogs.map(log => (
+                    <tr key={log.id} className="hover:bg-white/5 transition-colors">
+                      <td className="p-4 text-[10px] font-mono text-white/40">{new Date(log.timestamp).toLocaleString()}</td>
+                      <td className="p-4 text-xs font-bold text-[#FFD700]">{log.adminName}</td>
+                      <td className="p-4">
+                        <span className="px-2 py-1 rounded bg-white/5 text-[9px] font-black uppercase text-white/60">
+                          {log.action}
+                        </span>
+                      </td>
+                      <td className="p-4 text-[10px] text-white/40 max-w-xs truncate">{log.details}</td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5">
-                     {auditLogs.length === 0 ? (
-                       <tr><td colSpan={4} className="p-10 text-center text-white/20 text-xs italic">Nenhuma ação administrativa registada recentemente</td></tr>
-                     ) : auditLogs.map(log => (
-                       <tr key={log.id} className="hover:bg-white/5 transition-colors">
-                          <td className="p-4 text-[10px] font-mono text-white/40">{new Date(log.timestamp).toLocaleString()}</td>
-                          <td className="p-4 text-xs font-bold text-[#FFD700]">{log.adminName}</td>
-                          <td className="p-4">
-                             <span className="px-2 py-1 rounded bg-white/5 text-[9px] font-black uppercase text-white/60">
-                                {log.action}
-                             </span>
-                          </td>
-                          <td className="p-4 text-[10px] text-white/40 max-w-xs truncate">{log.details}</td>
-                       </tr>
-                     ))}
-                  </tbody>
-               </table>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
 
         {activeTab === 'management' && isSuperAdmin && (
           <div className="space-y-6 animate-in slide-in-from-right duration-300">
-             <header className="flex justify-between items-center">
-                <div>
-                  <h2 className="text-3xl font-black italic uppercase tracking-tighter text-[#FFD700]">Gestão de Admins</h2>
-                  <p className="text-sm text-white/40">Privilégios master reservados ao Super Admin</p>
-                </div>
-                <button className="flex items-center gap-2 px-6 py-4 bg-[#C00000] text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:scale-105 transition-transform">
-                  <Plus size={18} /> Novo Administrador
-                </button>
-             </header>
+            <header className="flex justify-between items-center">
+              <div>
+                <h2 className="text-3xl font-black italic uppercase tracking-tighter text-[#FFD700]">Gestão de Admins</h2>
+                <p className="text-sm text-white/40">Privilégios master reservados ao Super Admin</p>
+              </div>
+              <button className="flex items-center gap-2 px-6 py-4 bg-[#C00000] text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:scale-105 transition-transform">
+                <Plus size={18} /> Novo Administrador
+              </button>
+            </header>
 
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {[
-                  { name: 'Admin Secundário', email: 'admin2@apm.ao', role: 'ADMIN' },
-                  { name: 'Gestor Logística', email: 'logistica@apm.ao', role: 'ADMIN' },
-                ].map((adm, i) => (
-                  <div key={i} className="bg-[#0B0B0B] p-6 rounded-3xl border border-white/5 flex items-center justify-between group hover:border-[#FFD700]/30 transition-all">
-                     <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center text-[#FFD700] font-black">AD</div>
-                        <div>
-                           <p className="font-bold">{adm.name}</p>
-                           <p className="text-xs text-white/30">{adm.email}</p>
-                        </div>
-                     </div>
-                     <div className="flex items-center gap-2">
-                        <button className="p-2 hover:text-[#FFD700] transition-colors"><Edit2 size={16}/></button>
-                        <button className="p-2 hover:text-[#C00000] transition-colors"><ShieldAlert size={16}/></button>
-                     </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[
+                { name: 'Admin Secundário', email: 'admin2@apm.ao', role: 'ADMIN' },
+                { name: 'Gestor Logística', email: 'logistica@apm.ao', role: 'ADMIN' },
+              ].map((adm, i) => (
+                <div key={i} className="bg-[#0B0B0B] p-6 rounded-3xl border border-white/5 flex items-center justify-between group hover:border-[#FFD700]/30 transition-all">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center text-[#FFD700] font-black">AD</div>
+                    <div>
+                      <p className="font-bold">{adm.name}</p>
+                      <p className="text-xs text-white/30">{adm.email}</p>
+                    </div>
                   </div>
-                ))}
-             </div>
+                  <div className="flex items-center gap-2">
+                    <button className="p-2 hover:text-[#FFD700] transition-colors"><Edit2 size={16} /></button>
+                    <button className="p-2 hover:text-[#C00000] transition-colors"><ShieldAlert size={16} /></button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </main>

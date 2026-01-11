@@ -1,6 +1,8 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { MOCK_PRODUCTS } from '../constants';
+import { supabase } from '../lib/supabase';
+import { ProductStatus } from '../types';
 import ProductCard from '../components/ProductCard';
 import { ChevronRight, Zap, Trophy, Gift } from 'lucide-react';
 import { Product } from '../types';
@@ -10,6 +12,49 @@ interface HomeScreenProps {
 }
 
 const HomeScreen: React.FC<HomeScreenProps> = ({ onProductClick }) => {
+  const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    fetchApprovedProducts();
+  }, []);
+
+  const fetchApprovedProducts = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('status', ProductStatus.PUBLICADO)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        const mappedProducts: Product[] = data.map(p => ({
+          id: p.id,
+          name: p.name,
+          price: p.price,
+          image: p.image,
+          category: p.category,
+          rating: p.rating || 0,
+          sales: p.sales || 0,
+          isInternational: p.is_international || false,
+          status: p.status,
+          submittedBy: p.seller_id,
+          sellerId: p.seller_id,
+          description: p.description,
+          stock: p.stock
+        }));
+        setProducts(mappedProducts);
+      }
+    } catch (err) {
+      console.error('Error fetching products:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="p-4 space-y-6 animate-in fade-in duration-500">
 
@@ -25,7 +70,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onProductClick }) => {
           </div>
         </div>
         <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar">
-          {MOCK_PRODUCTS.filter(p => p.isFlashDeal).map(product => (
+          {products.filter(p => p.isFlashDeal).map(product => (
             <div key={product.id} className="min-w-[160px]">
               <ProductCard product={product} onClick={onProductClick} />
             </div>
@@ -39,7 +84,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onProductClick }) => {
           <h3 className="text-xl font-extrabold uppercase italic tracking-tight">Recomendados para Ti</h3>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {MOCK_PRODUCTS.map(product => (
+          {products.map(product => (
             <ProductCard key={product.id} product={product} onClick={onProductClick} />
           ))}
         </div>
