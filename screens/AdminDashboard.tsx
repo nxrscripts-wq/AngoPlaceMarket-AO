@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft, BarChart3, Users, Package, ShoppingCart, DollarSign,
-  TrendingUp, Activity, Plus, Key, Edit2, ShieldAlert, CheckCircle, XCircle, Clock, Eye, MessageSquare, Loader2
+  TrendingUp, Activity, Plus, Key, Edit2, ShieldAlert, CheckCircle, XCircle, Clock, Eye, MessageSquare, Loader2, Trash2
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -24,7 +24,10 @@ const salesData = [
 ];
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, user }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'review' | 'logs' | 'management'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'review' | 'logs' | 'management' | 'users'>('overview');
+  const [usersList, setUsersList] = useState<User[]>([]);
+  const [userFilter, setUserFilter] = useState<'all' | 'online' | 'offline'>('all');
+  const [isDeletingUser, setIsDeletingUser] = useState<string | null>(null);
 
   const isSuperAdmin = user.is_super_admin && user.role === UserRole.SUPER_ADMIN && user.email === "elviino.nxrscripts@gmail.com";
 
@@ -70,6 +73,75 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, user }) => {
     }
   };
 
+  const fetchUsers = async () => {
+    try {
+      // Note: In a real app, 'online' status would come from a presence system
+      // Here we will use auth.listUsers if possible, or a 'profiles' table.
+      // Assuming a 'profiles' table exists for listing users
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*');
+
+      if (error) throw error;
+
+      const mappedUsers: User[] = (data || []).map(u => ({
+        id: u.id,
+        name: u.full_name || u.email?.split('@')[0] || 'Utilizador',
+        email: u.email,
+        walletBalance: u.wallet_balance || 0,
+        role: u.role || UserRole.USER,
+        is_super_admin: u.role === UserRole.SUPER_ADMIN,
+        avatar: u.avatar_url || '',
+        last_seen: u.last_seen // used for online/offline simulation
+      }));
+
+      setUsersList(mappedUsers);
+    } catch (err) {
+      console.error('Error fetching users:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'users') {
+      fetchUsers();
+    }
+  }, [activeTab]);
+
+  const handleDeleteUser = async (userId: string) => {
+    if (!window.confirm('Tem a certeza que deseja excluir este utilizador permanentemente? Esta ação não pode ser desfeita.')) return;
+
+    setIsDeletingUser(userId);
+    try {
+      // Note: Deleting a user from auth requires admin privileges via supabase-js Admin API
+      // For the frontend logic, we simulate or call an edge function
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', userId);
+
+      if (error) throw error;
+
+      setUsersList(usersList.filter(u => u.id !== userId));
+      alert('Utilizador excluído com sucesso.');
+    } catch (err: any) {
+      alert(`Erro ao excluir utilizador: ${err.message}`);
+    } finally {
+      setIsDeletingUser(null);
+    }
+  };
+
+  const getFilteredUsers = () => {
+    if (userFilter === 'all') return usersList;
+
+    // Simulate online: active in the last 5 minutes
+    const now = new Date();
+    return usersList.filter(u => {
+      const lastSeen = u.last_seen ? new Date(u.last_seen) : null;
+      const isOnline = lastSeen && (now.getTime() - lastSeen.getTime() < 5 * 60 * 1000);
+      return userFilter === 'online' ? isOnline : !isOnline;
+    });
+  };
+
   const [auditLogs, setAuditLogs] = useState<AdminAction[]>([]);
 
   const handleReview = async (productId: string, action: 'APPROVE' | 'REJECT', feedback?: string) => {
@@ -108,6 +180,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, user }) => {
     { id: 'overview', icon: BarChart3, label: 'Geral' },
     { id: 'review', icon: Clock, label: 'Revisão' },
     { id: 'products', icon: Package, label: 'Produtos' },
+    { id: 'users', icon: Users, label: 'Utilizadores' },
     { id: 'logs', icon: Activity, label: 'Auditoria' },
     ...(isSuperAdmin ? [{ id: 'management', icon: Key, label: 'Gestão Admins' }] : []),
   ];
@@ -244,6 +317,75 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, user }) => {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === 'users' && (
+          <div className="space-y-6">
+            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-3xl font-black italic uppercase tracking-tighter">Gestão de Utilizadores</h2>
+                <p className="text-sm text-white/40 font-medium">Controlo de acessos e monitorização de atividade</p>
+              </div>
+              <div className="flex bg-[#0B0B0B] p-1 rounded-2xl border border-white/5">
+                {[
+                  { id: 'all', label: 'Todos' },
+                  { id: 'online', label: 'Online' },
+                  { id: 'offline', label: 'Offline' }
+                ].map(f => (
+                  <button
+                    key={f.id}
+                    onClick={() => setUserFilter(f.id as any)}
+                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${userFilter === f.id ? 'bg-[#FFD700] text-black' : 'text-white/40 hover:text-white'}`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </header>
+
+            <div className="grid grid-cols-1 gap-4">
+              {getFilteredUsers().length === 0 ? (
+                <div className="py-20 text-center opacity-20 font-black uppercase italic">Nenhum utilizador encontrado</div>
+              ) : (
+                getFilteredUsers().map(u => {
+                  const now = new Date();
+                  const lastSeen = u.last_seen ? new Date(u.last_seen) : null;
+                  const isOnline = lastSeen && (now.getTime() - lastSeen.getTime() < 5 * 60 * 1000);
+
+                  return (
+                    <div key={u.id} className="bg-[#0B0B0B] border border-white/5 p-4 rounded-3xl flex items-center justify-between group hover:border-white/10 transition-all">
+                      <div className="flex items-center gap-4">
+                        <div className="relative">
+                          <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center overflow-hidden">
+                            {u.avatar ? <img src={u.avatar} alt="" className="w-full h-full object-cover" /> : <Users size={20} className="text-white/20" />}
+                          </div>
+                          <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-[#0B0B0B] ${isOnline ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-gray-500'}`} />
+                        </div>
+                        <div>
+                          <p className="font-black text-sm uppercase italic">{u.name}</p>
+                          <p className="text-[10px] text-white/40 font-bold">{u.email}</p>
+                          <p className="text-[9px] text-[#FFD700] font-black uppercase mt-0.5 tracking-tighter">{u.role}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="hidden md:block mr-4 text-right">
+                          <p className="text-[9px] text-white/20 uppercase font-black">Carteira</p>
+                          <p className="text-xs font-black italic">{u.walletBalance.toLocaleString()} Kz</p>
+                        </div>
+                        <button
+                          disabled={isDeletingUser === u.id || u.role === UserRole.SUPER_ADMIN}
+                          onClick={() => handleDeleteUser(u.id)}
+                          className="p-3 bg-[#C00000]/10 text-[#C00000] rounded-xl hover:bg-[#C00000] hover:text-white transition-all disabled:opacity-20"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
         )}
 

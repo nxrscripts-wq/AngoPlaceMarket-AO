@@ -22,7 +22,10 @@ export const SUPER_ADMIN_EMAIL = "elviino.nxrscripts@gmail.com";
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
-  const [currentScreen, setCurrentScreen] = useState<AppScreen>(AppScreen.HOME);
+  const [currentScreen, setCurrentScreen] = useState<AppScreen>(() => {
+    const saved = localStorage.getItem('ango_current_screen');
+    return (saved as AppScreen) || AppScreen.HOME;
+  });
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedSeller, setSelectedSeller] = useState<Seller | null>(null);
   const [activeSearchQuery, setActiveSearchQuery] = useState('');
@@ -63,6 +66,12 @@ const App: React.FC = () => {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (currentScreen !== AppScreen.AUTH) {
+      localStorage.setItem('ango_current_screen', currentScreen);
+    }
+  }, [currentScreen]);
 
   const handleLogin = (userData: User) => {
     // This is now handled by onAuthStateChange, but we keep this for legacy compatibility if needed
