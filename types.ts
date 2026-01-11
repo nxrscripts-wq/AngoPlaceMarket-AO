@@ -2,6 +2,7 @@
 export enum UserRole {
   USER = 'USER',
   SELLER = 'SELLER',
+  SHOP_OWNER = 'SHOP_OWNER',
   ADMIN = 'ADMIN',
   SUPER_ADMIN = 'SUPER_ADMIN'
 }
@@ -19,6 +20,26 @@ export enum PaymentStatus {
   SUCCESS = 'SUCCESS',
   FAILED = 'FAILED',
   TIMEOUT = 'TIMEOUT'
+}
+
+export interface Shop {
+  id: string;
+  ownerId: string;
+  name: string;
+  logo: string;
+  description: string;
+  nif: string;
+  category: string;
+  businessLicense: string;
+  physicalAddress: {
+    province: string;
+    municipality: string;
+    street: string;
+  };
+  phone: string;
+  isVerified: boolean;
+  verifiedAt?: string;
+  createdAt: string;
 }
 
 export interface Seller {
@@ -94,7 +115,8 @@ export enum AppScreen {
   ADMIN = 'admin',
   SUBMIT_PRODUCT = 'submit_product',
   PRODUCT_DETAILS = 'product_details',
-  CHAT_ROOM = 'chat_room'
+  CHAT_ROOM = 'chat_room',
+  SHOP_REGISTRATION = 'shop_registration'
 }
 
 export interface SearchFilters {

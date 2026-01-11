@@ -14,6 +14,7 @@ import AuthScreen from './screens/AuthScreen';
 import SubmitProductScreen from './screens/SubmitProductScreen';
 import ProductDetailsScreen from './screens/ProductDetailsScreen';
 import ChatScreen from './screens/ChatScreen';
+import RegisterShopScreen from './screens/RegisterShopScreen';
 import { MOCK_SELLERS, MOCK_PRODUCTS } from './constants';
 import { supabase } from './lib/supabase';
 
@@ -134,6 +135,7 @@ const App: React.FC = () => {
           onAdmin={() => setCurrentScreen(AppScreen.ADMIN)}
           onLogout={() => { setUser(null); localStorage.clear(); setCurrentScreen(AppScreen.HOME); }}
           onSell={() => setCurrentScreen(AppScreen.SUBMIT_PRODUCT)}
+          onRegisterShop={() => setCurrentScreen(AppScreen.SHOP_REGISTRATION)}
         />
       );
       case AppScreen.ADMIN: return user ? <AdminDashboard user={user} onBack={() => setCurrentScreen(AppScreen.PROFILE)} /> : null;
@@ -159,6 +161,16 @@ const App: React.FC = () => {
       ) : null;
       case AppScreen.CHAT_ROOM: return (selectedSeller && user) ? (
         <ChatScreen seller={selectedSeller} onBack={() => setCurrentScreen(AppScreen.PRODUCT_DETAILS)} />
+      ) : null;
+      case AppScreen.SHOP_REGISTRATION: return user ? (
+        <RegisterShopScreen
+          user={user}
+          onBack={() => setCurrentScreen(AppScreen.PROFILE)}
+          onSuccess={() => {
+            showToast('Solicitação de Loja Submetida!', 'success');
+            setCurrentScreen(AppScreen.PROFILE);
+          }}
+        />
       ) : null;
       default: return <HomeScreen onProductClick={handleOpenProduct} />;
     }

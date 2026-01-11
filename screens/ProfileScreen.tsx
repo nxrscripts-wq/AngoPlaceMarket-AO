@@ -10,10 +10,12 @@ interface ProfileScreenProps {
   onAdmin: () => void;
   onLogout: () => void;
   onSell: () => void;
+  onRegisterShop: () => void;
 }
 
-const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onAdmin, onLogout, onSell }) => {
+const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onAdmin, onLogout, onSell, onRegisterShop }) => {
   const isAdmin = user?.role === UserRole.ADMIN || user?.role === UserRole.SUPER_ADMIN;
+  const isShopOwner = user?.role === UserRole.SHOP_OWNER;
 
   const menuItems = [
     { icon: Package, label: 'Meus Pedidos', sub: 'Rastrear encomendas' },
@@ -41,6 +43,11 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onAdmin, onLogout, 
                 <ShieldCheck size={10} /> {user?.role === UserRole.SUPER_ADMIN ? 'Super Admin' : 'Admin'}
               </div>
             )}
+            {isShopOwner && (
+              <div className="mt-2 inline-flex items-center gap-1 bg-[#C00000]/10 text-[#C00000] text-[10px] font-black px-2 py-0.5 rounded uppercase border border-[#C00000]/20 ml-1">
+                <ShoppingBag size={10} /> Loja Verificada
+              </div>
+            )}
           </div>
         </div>
         <button className="p-2 bg-[#1A1A1A] rounded-full border border-white/5">
@@ -48,19 +55,34 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onAdmin, onLogout, 
         </button>
       </div>
 
-      {/* Selling CTA */}
-      <div className="bg-[#FFD700] rounded-2xl p-5 text-black flex items-center justify-between group cursor-pointer active:scale-95 transition-all shadow-xl shadow-yellow-500/10" onClick={onSell}>
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-black rounded-xl flex items-center justify-center text-[#FFD700]">
-            <ShoppingBag size={24} />
+      {/* Selling/Shop CTA */}
+      {!isShopOwner ? (
+        <div className="bg-[#FFD700] rounded-2xl p-5 text-black flex items-center justify-between group cursor-pointer active:scale-95 transition-all shadow-xl shadow-yellow-500/10" onClick={onRegisterShop}>
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-black rounded-xl flex items-center justify-center text-[#FFD700]">
+              <ShoppingBag size={24} />
+            </div>
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Negócio Profissional</p>
+              <p className="font-black text-lg uppercase leading-tight italic">Abrir Loja Profissional</p>
+            </div>
           </div>
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Ganhe Dinheiro</p>
-            <p className="font-black text-lg uppercase leading-tight italic">Vender no AngoPlace</p>
-          </div>
+          <ChevronRight size={24} />
         </div>
-        <ChevronRight size={24} />
-      </div>
+      ) : (
+        <div className="bg-black rounded-2xl p-5 text-white flex items-center justify-between group cursor-pointer active:scale-95 transition-all border border-[#FFD700]/20" onClick={onSell}>
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-[#FFD700] rounded-xl flex items-center justify-center text-black">
+              <Package size={24} />
+            </div>
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Minha Loja</p>
+              <p className="font-black text-lg uppercase leading-tight italic text-[#FFD700]">Gerir Produtos</p>
+            </div>
+          </div>
+          <ChevronRight size={24} className="text-[#FFD700]" />
+        </div>
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 gap-4">
