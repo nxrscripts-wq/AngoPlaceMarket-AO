@@ -27,6 +27,10 @@ const App: React.FC = () => {
     return (saved as AppScreen) || AppScreen.HOME;
   });
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [wishlist, setWishlist] = useState<string[]>(() => {
+    const saved = localStorage.getItem('ango_wishlist');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [selectedSeller, setSelectedSeller] = useState<Seller | null>(null);
   const [activeSearchQuery, setActiveSearchQuery] = useState('');
 
@@ -72,6 +76,21 @@ const App: React.FC = () => {
       localStorage.setItem('ango_current_screen', currentScreen);
     }
   }, [currentScreen]);
+
+  useEffect(() => {
+    localStorage.setItem('ango_wishlist', JSON.stringify(wishlist));
+  }, [wishlist]);
+
+  const toggleWishlist = (productId: string) => {
+    setWishlist(prev =>
+      prev.includes(productId)
+        ? prev.filter(id => id !== productId)
+        : [...prev, productId]
+    );
+  };
+
+  const isWishlisted = (productId: string) => wishlist.includes(productId);
+
 
   const handleLogin = (userData: User) => {
     // This is now handled by onAuthStateChange, but we keep this for legacy compatibility if needed

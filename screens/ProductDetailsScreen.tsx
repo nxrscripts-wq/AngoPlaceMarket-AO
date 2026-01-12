@@ -12,8 +12,11 @@ interface ProductDetailsScreenProps {
   product: Product;
   onBack: () => void;
   onAddToCart: () => void;
-  onChatWithSeller: (sellerId: string) => void;
-  onOpenSeller: (sellerId: string) => void;
+  onChatWithSeller?: (sellerId: string) => void;
+  onOpenSeller?: (sellerId: string) => void;
+  isWishlisted: boolean;
+  onToggleWishlist: () => void;
+  currentUserId?: string;
 }
 
 interface Toast {
@@ -23,7 +26,7 @@ interface Toast {
 }
 
 const ProductDetailsScreen: React.FC<ProductDetailsScreenProps> = ({
-  product, onBack, onAddToCart, onChatWithSeller, onOpenSeller
+  product, onBack, onAddToCart, onChatWithSeller, onOpenSeller, isWishlisted, onToggleWishlist
 }) => {
   const { addToCart, isInCart } = useCart();
   const [selectedImage, setSelectedImage] = useState(product.image);
@@ -62,10 +65,10 @@ const ProductDetailsScreen: React.FC<ProductDetailsScreenProps> = ({
         <div className="flex gap-2">
           <button className="p-2 bg-black/50 rounded-full backdrop-blur-md"><Share2 size={20} /></button>
           <button
-            onClick={() => setIsLiked(!isLiked)}
-            className={`p-2 rounded-full backdrop-blur-md transition-colors ${isLiked ? 'bg-red-500 text-white' : 'bg-black/50'}`}
+            onClick={onToggleWishlist}
+            className={`p-2 rounded-full backdrop-blur-md transition-colors ${isWishlisted ? 'bg-red-500 text-white' : 'bg-black/50'}`}
           >
-            <Heart size={20} fill={isLiked ? 'currentColor' : 'none'} />
+            <Heart size={20} fill={isWishlisted ? 'currentColor' : 'none'} />
           </button>
         </div>
       </header>
@@ -218,6 +221,25 @@ const ProductDetailsScreen: React.FC<ProductDetailsScreenProps> = ({
         </section>
       </div>
 
+      {/* More From Seller Section (FB Style) */}
+      <section className="px-4 pb-20 space-y-4 border-t border-white/5 pt-6">
+        <h3 className="text-sm font-black uppercase italic">Mais de {seller.name}</h3>
+        <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar">
+          {/* Mock data for suggestion */}
+          {[1, 2, 3].map(i => (
+            <div key={i} className="min-w-[140px] bg-[#1A1A1A] rounded-xl overflow-hidden border border-white/5">
+              <div className="h-32 bg-white/5">
+                <img src={`https://picsum.photos/seed/${seller.id}-${i}/200/200`} className="w-full h-full object-cover" alt="" />
+              </div>
+              <div className="p-2">
+                <p className="font-bold text-xs truncate">Produto {i}</p>
+                <p className="text-[#FFD700] text-xs font-black">{(1000 * i).toLocaleString()} Kz</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* Toast Notifications */}
       <div className="fixed top-20 left-0 right-0 px-4 space-y-2 z-[100]">
         {toasts.map((toast) => (
@@ -239,11 +261,11 @@ const ProductDetailsScreen: React.FC<ProductDetailsScreenProps> = ({
       {/* Action Bar */}
       <footer className="fixed bottom-0 left-0 right-0 h-24 bg-[#0B0B0B] border-t border-white/10 px-4 flex items-center gap-4 z-50 backdrop-blur-xl">
         <button
-          onClick={() => onChatWithSeller(seller.id)}
-          className="flex flex-col items-center justify-center text-white/50 hover:text-[#FFD700] transition-colors"
+          onClick={() => window.open(`https://wa.me/244${seller.phone || '930000000'}?text=${encodeURIComponent(`Olá, estou interessado no produto "${product.name}" que vi no AngoPlaceMarket.`)}`, '_blank')}
+          className="flex flex-col items-center justify-center text-white/50 hover:text-[#25D366] transition-colors"
         >
           <MessageSquare size={24} />
-          <span className="text-[9px] font-black uppercase mt-1">Chat</span>
+          <span className="text-[9px] font-black uppercase mt-1">WhatsApp</span>
         </button>
         <button
           onClick={handleAddToCart}
@@ -262,7 +284,7 @@ const ProductDetailsScreen: React.FC<ProductDetailsScreenProps> = ({
           Comprar Agora
         </button>
       </footer>
-    </div>
+    </div >
   );
 };
 

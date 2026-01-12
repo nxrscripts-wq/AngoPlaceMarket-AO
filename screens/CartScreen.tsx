@@ -126,7 +126,7 @@ const CartScreen: React.FC = () => {
             <span className="text-[#FFD700]">Meu</span> Carrinho
           </h2>
           <div className="bg-white/10 px-3 py-1 rounded-full text-xs font-bold">
-            {getItemCount()} items
+            {getItemCount()} itens
           </div>
         </header>
 
@@ -216,8 +216,8 @@ const CartScreen: React.FC = () => {
                     <button
                       onClick={() => setPaymentMethod('MCX')}
                       className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${paymentMethod === 'MCX'
-                          ? 'bg-[#1A1A1A] border-[#FFD700] text-white'
-                          : 'bg-black/20 border-white/5 text-white/40 hover:bg-white/5'
+                        ? 'bg-[#1A1A1A] border-[#FFD700] text-white'
+                        : 'bg-black/20 border-white/5 text-white/40 hover:bg-white/5'
                         }`}
                     >
                       <Smartphone size={24} className={paymentMethod === 'MCX' ? 'text-[#FFD700]' : ''} />
@@ -226,8 +226,8 @@ const CartScreen: React.FC = () => {
                     <button
                       onClick={() => setPaymentMethod('IBAN')}
                       className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${paymentMethod === 'IBAN'
-                          ? 'bg-[#1A1A1A] border-[#FFD700] text-white'
-                          : 'bg-black/20 border-white/5 text-white/40 hover:bg-white/5'
+                        ? 'bg-[#1A1A1A] border-[#FFD700] text-white'
+                        : 'bg-black/20 border-white/5 text-white/40 hover:bg-white/5'
                         }`}
                     >
                       <CreditCard size={24} className={paymentMethod === 'IBAN' ? 'text-[#FFD700]' : ''} />
@@ -364,8 +364,8 @@ const CartScreen: React.FC = () => {
                 <button
                   onClick={handlePayment}
                   className={`w-full h-16 rounded-2xl font-black uppercase text-sm tracking-widest flex items-center justify-center gap-2 shadow-xl transition-all active:scale-95 ${paymentMethod === 'IBAN' && !proofFile
-                      ? 'bg-white/10 text-white/30 cursor-not-allowed'
-                      : 'bg-[#FFD700] text-black shadow-[#FFD700]/10 hover:bg-white'
+                    ? 'bg-white/10 text-white/30 cursor-not-allowed'
+                    : 'bg-[#FFD700] text-black shadow-[#FFD700]/10 hover:bg-white'
                     }`}
                 >
                   {paymentMethod === 'MCX' ? 'PAGAR COM EXPRESS' : 'CONFIRMAR TRANSFERÊNCIA'} <ArrowRight size={20} />
