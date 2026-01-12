@@ -1,0 +1,7 @@
+{
+  "name": "AngoPlaceMarket - Marketplace de Angola",
+  "description": "Um marketplace premium inspirado no Temu, totalmente adaptado ao mercado de Angola com design dark mode, gamificação e suporte a pagamentos locais como Multicaixa.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}

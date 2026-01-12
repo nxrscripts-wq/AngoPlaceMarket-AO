@@ -1,0 +1,198 @@
+
+import React, { useState, useEffect } from 'react';
+import { AppScreen, User, UserRole, Product, Seller } from './types';
+import { CartProvider } from './contexts/CartContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import Header from './components/Header';
+import FooterNav from './components/FooterNav';
+import HomeScreen from './screens/HomeScreen';
+import CategoriesScreen from './screens/CategoriesScreen';
+import CartScreen from './screens/CartScreen';
+import ProfileScreen from './screens/ProfileScreen';
+import AdminDashboard from './screens/AdminDashboard';
+import SearchScreen from './screens/SearchScreen';
+import AuthScreen from './screens/AuthScreen';
+import SubmitProductScreen from './screens/SubmitProductScreen';
+import ProductDetailsScreen from './screens/ProductDetailsScreen';
+import ChatScreen from './screens/ChatScreen';
+import RegisterShopScreen from './screens/RegisterShopScreen';
+import { MOCK_SELLERS, MOCK_PRODUCTS } from './constants';
+import { supabase } from './lib/supabase';
+
+export const SUPER_ADMIN_EMAIL = "elviino.nxrscripts@gmail.com";
+
+const App: React.FC = () => {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
+};
+
+const AppContent: React.FC = () => {
+  const { user, loading } = useAuth();
+  const [currentScreen, setCurrentScreen] = useState<AppScreen>(() => {
+    const saved = localStorage.getItem('ango_current_screen');
+    return (saved as AppScreen) || AppScreen.HOME;
+  });
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [selectedSeller, setSelectedSeller] = useState<Seller | null>(null);
+  const [activeSearchQuery, setActiveSearchQuery] = useState('');
+
+  // Effect to handle navigation changes based on auth state
+  useEffect(() => {
+    if (!loading) {
+      if (user && currentScreen === AppScreen.AUTH) {
+        setCurrentScreen(AppScreen.HOME);
+      }
+    }
+  }, [user, loading, currentScreen]);
+
+  useEffect(() => {
+    if (currentScreen !== AppScreen.AUTH) {
+      localStorage.setItem('ango_current_screen', currentScreen);
+    }
+  }, [currentScreen]);
+
+  const handleOpenProduct = (p: Product) => {
+    setSelectedProduct(p);
+    setCurrentScreen(AppScreen.PRODUCT_DETAILS);
+  };
+
+  const handleOpenChat = (sellerId: string) => {
+    if (!user) {
+      setCurrentScreen(AppScreen.AUTH);
+      return;
+    }
+    const s = MOCK_SELLERS.find(sel => sel.id === sellerId) || MOCK_SELLERS[0];
+    setSelectedSeller(s);
+    setCurrentScreen(AppScreen.CHAT_ROOM);
+  };
+
+  const handleSearch = (query?: string) => {
+    if (query) {
+      setActiveSearchQuery(query);
+    }
+    setCurrentScreen(AppScreen.SEARCH);
+  };
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    const toast = document.createElement('div');
+    toast.className = `fixed top-24 right-4 z-[9999] px-6 py-3 rounded-2xl font-bold shadow-2xl animate-in slide-in-from-right fade-in duration-300 ${type === 'success'
+      ? 'bg-[#FFD700] text-black border border-white/20'
+      : 'bg-[#C00000] text-white border border-white/10'
+      }`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+      toast.classList.add('fade-out', 'slide-out-to-right');
+      setTimeout(() => toast.remove(), 300);
+    }, 3000);
+  };
+
+  const renderScreen = () => {
+    if (loading) {
+      return <div className="flex h-screen items-center justify-center text-[#FFD700]">Carregando...</div>;
+    }
+
+    // Guest protection for specific screens
+    const protectedScreens = [
+      AppScreen.PROFILE,
+      AppScreen.ADMIN,
+      AppScreen.SUBMIT_PRODUCT,
+      AppScreen.CHAT_ROOM
+    ];
+
+    if (!user && protectedScreens.includes(currentScreen)) {
+      return <AuthScreen />;
+    }
+
+    if (currentScreen === AppScreen.AUTH) {
+      return <AuthScreen />;
+    }
+
+    switch (currentScreen) {
+      case AppScreen.HOME: return <HomeScreen onProductClick={handleOpenProduct} />;
+      case AppScreen.CATEGORIES: return <CategoriesScreen />;
+      case AppScreen.CART: return <CartScreen />;
+      case AppScreen.PROFILE: return (
+        <ProfileScreen
+          user={user}
+          onAdmin={() => setCurrentScreen(AppScreen.ADMIN)}
+          onLogout={() => { /* Logout handled in ProfileScreen via signOut */ setCurrentScreen(AppScreen.HOME); }}
+          onSell={() => setCurrentScreen(AppScreen.SUBMIT_PRODUCT)}
+          onRegisterShop={() => setCurrentScreen(AppScreen.SHOP_REGISTRATION)}
+        />
+      );
+      case AppScreen.ADMIN: return user ? <AdminDashboard user={user} onBack={() => setCurrentScreen(AppScreen.PROFILE)} /> : null;
+      case AppScreen.SEARCH: return (
+        <SearchScreen
+          initialQuery={activeSearchQuery}
+          onBack={() => {
+            setActiveSearchQuery('');
+            setCurrentScreen(AppScreen.HOME);
+          }}
+          onProductClick={handleOpenProduct}
+        />
+      );
+      case AppScreen.SUBMIT_PRODUCT: return user ? <SubmitProductScreen onBack={() => setCurrentScreen(AppScreen.PROFILE)} user={user} /> : null;
+      case AppScreen.PRODUCT_DETAILS: return selectedProduct ? (
+        <ProductDetailsScreen
+          product={selectedProduct}
+          onBack={() => setCurrentScreen(AppScreen.HOME)}
+          onAddToCart={() => setCurrentScreen(AppScreen.CART)}
+          onChatWithSeller={handleOpenChat}
+          onOpenSeller={(id) => { }}
+        />
+      ) : null;
+      case AppScreen.CHAT_ROOM: return (selectedSeller && user) ? (
+        <ChatScreen seller={selectedSeller} onBack={() => setCurrentScreen(AppScreen.PRODUCT_DETAILS)} />
+      ) : null;
+      case AppScreen.SHOP_REGISTRATION: return user ? (
+        <RegisterShopScreen
+          user={user}
+          onBack={() => setCurrentScreen(AppScreen.PROFILE)}
+          onSuccess={() => {
+            showToast('Solicitação de Loja Submetida!', 'success');
+            setCurrentScreen(AppScreen.PROFILE);
+          }}
+        />
+      ) : null;
+      default: return <HomeScreen onProductClick={handleOpenProduct} />;
+    }
+  };
+
+  const hideFooter = [
+    AppScreen.ADMIN,
+    AppScreen.SEARCH,
+    AppScreen.SUBMIT_PRODUCT,
+    AppScreen.PRODUCT_DETAILS,
+    AppScreen.CHAT_ROOM,
+    AppScreen.AUTH
+  ].includes(currentScreen);
+
+  return (
+    <CartProvider>
+      <div className="flex flex-col min-h-screen bg-[#0B0B0B] text-white">
+        {!hideFooter && (
+          <Header
+            onSearchClick={handleSearch}
+            onSellClick={() => setCurrentScreen(AppScreen.SUBMIT_PRODUCT)}
+            onCartClick={() => setCurrentScreen(AppScreen.CART)}
+            onLogoClick={() => setCurrentScreen(AppScreen.HOME)}
+            onLoginClick={() => setCurrentScreen(AppScreen.AUTH)}
+            user={user}
+          />
+        )}
+        <main className={`flex-grow ${!hideFooter ? 'pb-20 pt-20' : ''}`}>
+          {renderScreen()}
+        </main>
+        {!hideFooter && (
+          <FooterNav activeScreen={currentScreen} onNavigate={setCurrentScreen} />
+        )}
+      </div>
+    </CartProvider>
+  );
+};
+
+export default App;
