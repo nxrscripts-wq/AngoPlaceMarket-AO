@@ -143,10 +143,9 @@ const AuthScreen: React.FC<AuthScreenProps> = () => {
       }
     }
 
-    // Validate password (Strong Security)
-    const strongPasswordRegex = /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
-    if (!strongPasswordRegex.test(password)) {
-      setError('A palavra-passe deve ter: mín. 8 caracteres, 1 letra, 1 número e 1 símbolo.');
+    // Validate password
+    if (password.length < 6) {
+      setError('A palavra-passe deve ter pelo menos 6 caracteres');
       return;
     }
 
@@ -352,7 +351,7 @@ const AuthScreen: React.FC<AuthScreenProps> = () => {
                   <input
                     required
                     type={showPassword ? "text" : "password"}
-                    placeholder="Palavra-passe (mín. 8 caracteres, letra, número, símbolo)"
+                    placeholder="Palavra-passe (mín. 6 caracteres)"
                     value={password}
                     onChange={(e) => { setPassword(e.target.value); setError(null); }}
                     className={`w-full bg-[#1A1A1A] border rounded-2xl py-4 pl-12 pr-12 outline-none focus:border-[#FFD700] transition-all font-bold text-sm ${error && password.length < 6 ? 'border-[#C00000]' : 'border-white/5'}`}

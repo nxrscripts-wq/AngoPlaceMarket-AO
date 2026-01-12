@@ -51,7 +51,6 @@ export interface Seller {
   responseTime: string;
   level: 'BRONZE' | 'PRATA' | 'OURO' | 'PLATINA';
   joinedAt: string;
-  phone?: string;
 }
 
 export interface Review {

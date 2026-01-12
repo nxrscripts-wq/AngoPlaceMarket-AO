@@ -24,19 +24,23 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onProductClick }) => {
     try {
       const { data, error } = await supabase
         .from('products')
-        .select('*')
+        .select(`
+          *,
+          categories:category_id(name)
+        `)
         .eq('status', ProductStatus.PUBLICADO)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
       if (data && data.length > 0) {
-        const mappedProducts: Product[] = data.map(p => ({
+        const mappedProducts: Product[] = data.map((p: any) => ({
           id: p.id,
           name: p.name,
           price: p.price,
+          oldPrice: p.old_price,
           image: p.image,
-          category: p.category,
+          category: p.categories?.name || 'Geral',
           rating: p.rating || 0,
           sales: p.sales || 0,
           isInternational: p.is_international || false,
@@ -44,12 +48,19 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onProductClick }) => {
           submittedBy: p.seller_id,
           sellerId: p.seller_id,
           description: p.description,
-          stock: p.stock
+          stock: p.stock,
+          variations: p.variations
         }));
         setProducts(mappedProducts);
+      } else {
+        // Fallback to mock data if no products in DB (for dev/demo purposes)
+        // setProducts(MOCK_PRODUCTS);
+        // Or keep empty array
       }
     } catch (err) {
       console.error('Error fetching products:', err);
+      // Fallback to mock data on error?
+      // setProducts(MOCK_PRODUCTS);
     } finally {
       setIsLoading(false);
     }

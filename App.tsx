@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { AppScreen, User, UserRole, Product, Seller } from './types';
 import { CartProvider } from './contexts/CartContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Header from './components/Header';
 import FooterNav from './components/FooterNav';
 import HomeScreen from './screens/HomeScreen';
@@ -21,82 +22,37 @@ import { supabase } from './lib/supabase';
 export const SUPER_ADMIN_EMAIL = "elviino.nxrscripts@gmail.com";
 
 const App: React.FC = () => {
-  const [user, setUser] = useState<User | null>(null);
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
+};
+
+const AppContent: React.FC = () => {
+  const { user, loading } = useAuth();
   const [currentScreen, setCurrentScreen] = useState<AppScreen>(() => {
     const saved = localStorage.getItem('ango_current_screen');
     return (saved as AppScreen) || AppScreen.HOME;
   });
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [wishlist, setWishlist] = useState<string[]>(() => {
-    const saved = localStorage.getItem('ango_wishlist');
-    return saved ? JSON.parse(saved) : [];
-  });
   const [selectedSeller, setSelectedSeller] = useState<Seller | null>(null);
   const [activeSearchQuery, setActiveSearchQuery] = useState('');
 
-  const mapSupabaseUser = (sbUser: any): User => {
-    const email = sbUser.email || '';
-    const isMaster = email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase();
-    const metadata = sbUser.user_metadata || {};
-
-    return {
-      id: sbUser.id,
-      name: metadata.full_name || metadata.name || email.split('@')[0] || 'Utilizador',
-      email: email,
-      walletBalance: metadata.wallet_balance || 0,
-      role: isMaster ? UserRole.SUPER_ADMIN : (metadata.role || UserRole.USER),
-      is_super_admin: isMaster,
-      avatar: metadata.avatar_url || metadata.picture || ''
-    };
-  };
-
+  // Effect to handle navigation changes based on auth state
   useEffect(() => {
-    // Check initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser(mapSupabaseUser(session.user));
+    if (!loading) {
+      if (user && currentScreen === AppScreen.AUTH) {
+        setCurrentScreen(AppScreen.HOME);
       }
-    });
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        setUser(mapSupabaseUser(session.user));
-        if (_event === 'SIGNED_IN') setCurrentScreen(AppScreen.HOME);
-      } else {
-        setUser(null);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
+    }
+  }, [user, loading, currentScreen]);
 
   useEffect(() => {
     if (currentScreen !== AppScreen.AUTH) {
       localStorage.setItem('ango_current_screen', currentScreen);
     }
   }, [currentScreen]);
-
-  useEffect(() => {
-    localStorage.setItem('ango_wishlist', JSON.stringify(wishlist));
-  }, [wishlist]);
-
-  const toggleWishlist = (productId: string) => {
-    setWishlist(prev =>
-      prev.includes(productId)
-        ? prev.filter(id => id !== productId)
-        : [...prev, productId]
-    );
-  };
-
-  const isWishlisted = (productId: string) => wishlist.includes(productId);
-
-
-  const handleLogin = (userData: User) => {
-    // This is now handled by onAuthStateChange, but we keep this for legacy compatibility if needed
-    setUser(userData);
-    setCurrentScreen(AppScreen.HOME);
-  };
 
   const handleOpenProduct = (p: Product) => {
     setSelectedProduct(p);
@@ -134,9 +90,11 @@ const App: React.FC = () => {
     }, 3000);
   };
 
-  // Simulate checking if already claimed (in a real app this would be backend check)
-
   const renderScreen = () => {
+    if (loading) {
+      return <div className="flex h-screen items-center justify-center text-[#FFD700]">Carregando...</div>;
+    }
+
     // Guest protection for specific screens
     const protectedScreens = [
       AppScreen.PROFILE,
@@ -161,7 +119,7 @@ const App: React.FC = () => {
         <ProfileScreen
           user={user}
           onAdmin={() => setCurrentScreen(AppScreen.ADMIN)}
-          onLogout={() => { setUser(null); localStorage.clear(); setCurrentScreen(AppScreen.HOME); }}
+          onLogout={() => { /* Logout handled in ProfileScreen via signOut */ setCurrentScreen(AppScreen.HOME); }}
           onSell={() => setCurrentScreen(AppScreen.SUBMIT_PRODUCT)}
           onRegisterShop={() => setCurrentScreen(AppScreen.SHOP_REGISTRATION)}
         />
