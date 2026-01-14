@@ -74,6 +74,7 @@ create table public.products (
   id uuid default uuid_generate_v4() primary key,
   seller_id uuid references public.profiles(id) not null,
   category_id uuid references public.categories(id),
+  category text, -- Added for simplified category management as seen in frontend
   name text not null,
   description text,
   price numeric not null,
@@ -83,11 +84,29 @@ create table public.products (
   rating numeric default 0,
   sales integer default 0,
   is_international boolean default false,
+  is_flash_deal boolean default false, -- Added for HomeScreen deals
+  status text default 'PENDENTE', -- Added: 'PENDENTE', 'PUBLICADO', 'REJEITADO'
+  location text, -- Added for delivery location
   variations jsonb, -- JSONB to store flexible variations like { "Color": ["Red", "Blue"] }
   stock integer default 0,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
+
+-- Enable RLS for products
+alter table public.products enable row level security;
+
+create policy "Products are viewable by everyone."
+  on products for select
+  using ( true );
+
+create policy "Sellers can insert their own products."
+  on products for insert
+  with check ( auth.uid() = seller_id );
+
+create policy "Sellers can update their own products."
+  on products for update
+  using ( auth.uid() = seller_id );
 
 -- ORDERS
 create table public.orders (
@@ -112,8 +131,15 @@ create table public.order_items (
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
-  insert into public.profiles (id, email, full_name, avatar_url)
-  values (new.id, new.email, new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'avatar_url');
+  insert into public.profiles (id, email, full_name, avatar_url, role, wallet_balance)
+  values (
+    new.id, 
+    new.email, 
+    coalesce(new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'name'), 
+    coalesce(new.raw_user_meta_data->>'avatar_url', new.raw_user_meta_data->>'picture'),
+    coalesce(new.raw_user_meta_data->>'role', 'USER'),
+    coalesce((new.raw_user_meta_data->>'wallet_balance')::numeric, 0)
+  );
   return new;
 end;
 $$ language plpgsql security definer;
@@ -122,3 +148,23 @@ $$ language plpgsql security definer;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
+
+-- RPC Function to rotate flash deals (Simulated logic for AngoPlaceMarket)
+create or replace function public.rotate_flash_deals()
+returns void as $$
+begin
+  -- Clear current flash deals
+  update public.products set is_flash_deal = false;
+  
+  -- Randomly select 8 products to be flash deals
+  update public.products
+  set is_flash_deal = true,
+      old_price = price * 1.2 -- Simulate original price
+  where id in (
+    select id from public.products 
+    where status = 'PUBLICADO'
+    order by random() 
+    limit 8
+  );
+end;
+$$ language plpgsql security definer;

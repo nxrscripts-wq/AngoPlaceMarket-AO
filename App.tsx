@@ -107,7 +107,8 @@ const AppContent: React.FC = () => {
       AppScreen.SHOP_REGISTRATION,
       AppScreen.SETTINGS,
       AppScreen.MY_ORDERS,
-      AppScreen.COURIER_DASHBOARD
+      AppScreen.COURIER_DASHBOARD,
+      AppScreen.CART
     ];
 
     if (!user && protectedScreens.includes(currentScreen)) {
@@ -120,7 +121,7 @@ const AppContent: React.FC = () => {
 
     switch (currentScreen) {
       case AppScreen.HOME: return <HomeScreen onProductClick={handleOpenProduct} />;
-      case AppScreen.CATEGORIES: return <CategoriesScreen />;
+      case AppScreen.CATEGORIES: return <CategoriesScreen onProductClick={handleOpenProduct} />;
       case AppScreen.CART: return <CartScreen />;
       case AppScreen.PROFILE: return (
         <ProfileScreen
@@ -153,6 +154,7 @@ const AppContent: React.FC = () => {
           onAddToCart={() => setCurrentScreen(AppScreen.CART)}
           onChatWithSeller={handleOpenChat}
           onOpenSeller={(id) => { }}
+          user={user}
         />
       ) : null;
       case AppScreen.CHAT_ROOM: return (selectedSeller && user) ? (

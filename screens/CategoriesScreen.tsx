@@ -1,6 +1,9 @@
 
-import React, { useState } from 'react';
-import { Smartphone, Shirt, Home, Camera, Car, Gamepad2, Baby, Search, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Smartphone, Shirt, Home, Camera, Car, Gamepad2, Baby, Search, ChevronRight, Loader2 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { Product, ProductStatus } from '../types';
+import ProductCard from '../components/ProductCard';
 
 const CATEGORIES = [
   { id: '1', name: 'Eletrónicos', icon: Smartphone, count: '1.2k+ produtos' },
@@ -12,8 +15,59 @@ const CATEGORIES = [
   { id: '7', name: 'Bebé e Kids', icon: Baby, count: '1.1k+ produtos' },
 ];
 
-const CategoriesScreen: React.FC = () => {
+interface CategoriesScreenProps {
+  onProductClick?: (p: Product) => void;
+}
+
+const CategoriesScreen: React.FC<CategoriesScreenProps> = ({ onProductClick }) => {
   const [activeCategory, setActiveCategory] = useState('1');
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const currentCategory = CATEGORIES.find(c => c.id === activeCategory);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      if (!currentCategory) return;
+      setIsLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('products')
+          .select('*')
+          .eq('status', ProductStatus.PUBLICADO)
+          .eq('category', currentCategory.name)
+          .limit(10);
+
+        if (error) throw error;
+
+        const mappedProducts: Product[] = (data || []).map(p => ({
+          id: p.id,
+          name: p.name,
+          price: p.price,
+          image: p.image,
+          category: p.category,
+          rating: p.rating || 0,
+          sales: p.sales || 0,
+          isInternational: p.is_international || false,
+          status: p.status,
+          submittedBy: p.seller_id,
+          sellerId: p.seller_id,
+          description: p.description,
+          stock: p.stock,
+          location: p.location
+        }));
+
+        setProducts(mappedProducts);
+      } catch (err) {
+        console.error("Error fetching category products:", err);
+        setProducts([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, [activeCategory]);
 
   return (
     <div className="flex h-full animate-in fade-in duration-300">
@@ -73,16 +127,30 @@ const CategoriesScreen: React.FC = () => {
           ))}
         </div>
 
-        {/* Popular Tags */}
-        <div className="space-y-3 pt-4">
-          <h4 className="text-[10px] font-black text-white/30 uppercase tracking-widest">Tags Populares</h4>
-          <div className="flex flex-wrap gap-2">
-            {['Inverno', 'Promoção', 'Atacado', 'Marcas AO', 'Xiaomi', 'SAMSUNG', 'Adidas'].map((tag, i) => (
-              <span key={i} className="px-3 py-1 bg-black rounded-full text-[10px] font-bold text-white/60 border border-white/5 hover:border-[#FFD700] hover:text-[#FFD700] transition-colors cursor-pointer">
-                #{tag}
-              </span>
-            ))}
+        {/* Products Grid */}
+        <div className="space-y-4 pt-4 pb-12">
+          <div className="flex items-center justify-between px-1">
+            <h4 className="text-[10px] font-black text-white/30 uppercase tracking-widest">Descobrir Produtos</h4>
+            <button className="text-[9px] font-black text-[#FFD700] uppercase">Ver Todos</button>
           </div>
+
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-12 text-white/20">
+              <Loader2 size={32} className="animate-spin mb-2" />
+              <p className="text-[10px] font-bold uppercase">Sincronizando Marketplace...</p>
+            </div>
+          ) : products.length > 0 ? (
+            <div className="grid grid-cols-2 gap-4">
+              {products.map(product => (
+                <ProductCard key={product.id} product={product} onClick={onProductClick || (() => { })} />
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12 text-center bg-black/20 rounded-3xl border border-white/5">
+              <span className="text-2xl mb-2">📦</span>
+              <p className="text-xs font-black uppercase text-white/20">Sem produtos nesta categoria</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -14,6 +14,7 @@ interface HomeScreenProps {
 const HomeScreen: React.FC<HomeScreenProps> = ({ onProductClick }) => {
   const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS);
   const [isLoading, setIsLoading] = useState(false);
+  const hasAttemptedRotation = React.useRef(false);
 
   useEffect(() => {
     fetchApprovedProducts();
@@ -65,7 +66,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onProductClick }) => {
         setProducts(mappedProducts);
 
         // If no flash deals exist, trigger a rotation (Magic!)
-        if (mappedProducts.filter(p => p.isFlashDeal).length === 0 && mappedProducts.length > 0) {
+        if (mappedProducts.filter(p => p.isFlashDeal).length === 0 && mappedProducts.length > 0 && !hasAttemptedRotation.current) {
+          hasAttemptedRotation.current = true;
           await supabase.rpc('rotate_flash_deals');
           fetchApprovedProducts(); // Refetch to get updated deals
         }

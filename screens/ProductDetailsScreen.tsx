@@ -15,6 +15,7 @@ interface ProductDetailsScreenProps {
   onAddToCart: () => void;
   onChatWithSeller: (sellerId: string) => void;
   onOpenSeller: (sellerId: string) => void;
+  user: any;
 }
 
 interface Toast {
@@ -24,7 +25,7 @@ interface Toast {
 }
 
 const ProductDetailsScreen: React.FC<ProductDetailsScreenProps> = ({
-  product, onBack, onAddToCart, onChatWithSeller, onOpenSeller
+  product, onBack, onAddToCart, onChatWithSeller, onOpenSeller, user
 }) => {
   const { addToCart, isInCart } = useCart();
   const [selectedImage, setSelectedImage] = useState(product.image);
@@ -85,8 +86,12 @@ const ProductDetailsScreen: React.FC<ProductDetailsScreenProps> = ({
   };
 
   const handleBuyNow = () => {
+    if (!user) {
+      onAddToCart(); // onAddToCart in App.tsx sets screen to CART, which is now protected
+      return;
+    }
     addToCart(product, 1, selectedVariations);
-    onAddToCart(); // This navigates to cart
+    onAddToCart(); // Navigates to cart
   };
 
   return (

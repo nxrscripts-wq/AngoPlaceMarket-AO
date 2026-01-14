@@ -61,7 +61,7 @@ const Header: React.FC<HeaderProps> = ({ onSearchClick, onSellClick, onCartClick
       setIsThinking(true);
       try {
         // Check if API key is available
-        if (!process.env.API_KEY) {
+        if (!import.meta.env.VITE_GEMINI_API_KEY) {
           // Fallback to local suggestions when no API key
           const fallbackSuggestions: Suggestion[] = [
             { text: 'Gerador 5KVA', type: 'trend' as const },
@@ -83,7 +83,7 @@ const Header: React.FC<HeaderProps> = ({ onSearchClick, onSellClick, onCartClick
           return;
         }
 
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
         const prompt = query.trim()
           ? `Sugira 5 termos de autocompletar para a busca "${query}" em um marketplace em Angola. Retorne apenas JSON.`
           : `Sugira 5 termos de busca que são tendência atual em Angola (tecnologia, energia, moda). Retorne apenas JSON.`;

@@ -2,8 +2,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ArrowLeft, Search, Sparkles, TrendingUp, History, SlidersHorizontal, X, Clock, ShoppingBag, Target, Star, Truck, Globe, ChevronRight, DollarSign, Zap } from 'lucide-react';
 import { GoogleGenAI, Type } from '@google/genai';
-import { MOCK_PRODUCTS } from '../constants';
-import { Product, SearchFilters } from '../types';
+import { supabase } from '../lib/supabase';
+import { Product, SearchFilters, ProductStatus } from '../types';
 import ProductCard from '../components/ProductCard';
 
 interface SearchScreenProps {
@@ -31,22 +31,37 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ initialQuery = '', onBack, 
     return saved ? JSON.parse(saved) : ['Gerador 5kva', 'Cerveja Cuca grade', 'Smartphone barato'];
   });
 
-  const categories = useMemo(() => Array.from(new Set(MOCK_PRODUCTS.map(p => p.category))), []);
+  const categories = ['Eletrónicos', 'Moda', 'Casa e Lazer', 'Peças Auto', 'Energia Solar'];
 
-  const localSuggestions = useMemo(() => {
-    if (!query.trim()) return [];
-    const lowerQuery = query.toLowerCase();
+  const [localSuggestions, setLocalSuggestions] = useState<{ type: 'history' | 'product', text: string, id?: string }[]>([]);
 
-    const historyMatches = searchHistory
-      .filter(h => h.toLowerCase().includes(lowerQuery))
-      .map(h => ({ type: 'history' as const, text: h }));
+  useEffect(() => {
+    const fetchLocalSuggestions = async () => {
+      if (!query.trim()) {
+        setLocalSuggestions([]);
+        return;
+      }
+      const lowerQuery = query.toLowerCase();
 
-    const productMatches = MOCK_PRODUCTS
-      .filter(p => p.name.toLowerCase().includes(lowerQuery))
-      .slice(0, 3)
-      .map(p => ({ type: 'product' as const, text: p.name, id: p.id }));
+      const historyMatches = searchHistory
+        .filter(h => h.toLowerCase().includes(lowerQuery))
+        .map(h => ({ type: 'history' as const, text: h }));
 
-    return [...historyMatches, ...productMatches].slice(0, 5);
+      try {
+        const { data } = await supabase
+          .from('products')
+          .select('id, name')
+          .eq('status', ProductStatus.PUBLICADO)
+          .ilike('name', `%${lowerQuery}%`)
+          .limit(3);
+
+        const productMatches = (data || []).map(p => ({ type: 'product' as const, text: p.name, id: p.id }));
+        setLocalSuggestions([...historyMatches, ...productMatches].slice(0, 5));
+      } catch (err) {
+        setLocalSuggestions(historyMatches.slice(0, 5));
+      }
+    };
+    fetchLocalSuggestions();
   }, [query, searchHistory]);
 
   useEffect(() => {
@@ -60,10 +75,10 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ initialQuery = '', onBack, 
       try {
         let aiParams = { category: undefined as string | undefined, minPrice: 0, maxPrice: 1000000, keywords: [] as string[] };
 
-        if (!isQueryEmpty && process.env.API_KEY) {
+        if (!isQueryEmpty && import.meta.env.VITE_GEMINI_API_KEY) {
           // Only use AI if API key is available
           try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
             const response = await ai.models.generateContent({
               model: 'gemini-3-flash-preview',
               contents: `Analise a query "${query}". Retorne um JSON com autocomplete de tendências em Angola e parâmetros de busca. No campo search_params inclua minPrice e maxPrice baseados no contexto do produto.`,
@@ -107,35 +122,66 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ initialQuery = '', onBack, 
           setAiSuggestions([]);
         }
 
-        // Local Filter Logic (works without AI)
-        let filtered = MOCK_PRODUCTS.filter(p => {
-          const keywords = aiParams.keywords.length > 0 ? aiParams.keywords : [query.toLowerCase()];
-          const queryMatch = isQueryEmpty || keywords.some((kw: string) =>
-            p.name.toLowerCase().includes(kw.toString().toLowerCase()) ||
-            p.category.toLowerCase().includes(kw.toString().toLowerCase()) ||
-            p.description.toLowerCase().includes(kw.toString().toLowerCase())
-          );
+        // Supabase Query Logic
+        let queryBuilder = supabase
+          .from('products')
+          .select('*')
+          .eq('status', ProductStatus.PUBLICADO);
 
-          const catMatch = !filters.category || p.category === filters.category;
+        if (!isQueryEmpty) {
+          const searchTerm = query.toLowerCase();
+          queryBuilder = queryBuilder.or(`name.ilike.%${searchTerm}%,category.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`);
+        }
 
-          // Improved Price Range Filtering
-          const priceMatch = p.price >= (filters.minPrice || 0) && p.price <= (filters.maxPrice || 1000000);
+        if (filters.category) {
+          queryBuilder = queryBuilder.eq('category', filters.category);
+        }
 
-          const originMatch = filters.isInternational === 'all' ||
-            (filters.isInternational === true && p.isInternational) ||
-            (filters.isInternational === false && !p.isInternational);
+        if (filters.minPrice) {
+          queryBuilder = queryBuilder.gte('price', filters.minPrice);
+        }
 
-          const ratingMatch = !filters.minRating || p.rating >= filters.minRating;
-          const shippingMatch = !filters.onlyFreeShipping || p.isFreeShipping;
+        if (filters.maxPrice) {
+          queryBuilder = queryBuilder.lte('price', filters.maxPrice);
+        }
 
-          return queryMatch && catMatch && priceMatch && originMatch && ratingMatch && shippingMatch;
-        });
+        if (filters.isInternational !== 'all') {
+          queryBuilder = queryBuilder.eq('is_international', filters.isInternational);
+        }
 
-        setResults(filtered);
+        if (filters.minRating) {
+          queryBuilder = queryBuilder.gte('rating', filters.minRating);
+        }
+
+        if (filters.onlyFreeShipping) {
+          queryBuilder = queryBuilder.eq('is_free_shipping', true);
+        }
+
+        const { data, error: dbError } = await queryBuilder;
+
+        if (dbError) throw dbError;
+
+        const mappedProducts: Product[] = (data || []).map(p => ({
+          id: p.id,
+          name: p.name,
+          price: p.price,
+          image: p.image,
+          category: p.category,
+          rating: p.rating || 0,
+          sales: p.sales || 0,
+          isInternational: p.is_international || false,
+          status: p.status,
+          submittedBy: p.seller_id,
+          sellerId: p.seller_id,
+          description: p.description,
+          stock: p.stock,
+          location: p.location
+        }));
+
+        setResults(mappedProducts);
       } catch (error) {
         console.error("Deep Search Error:", error);
-        // Fallback: show all products on error
-        setResults(MOCK_PRODUCTS);
+        setResults([]);
       } finally {
         setIsThinking(false);
       }
