@@ -168,3 +168,29 @@ begin
   );
 end;
 $$ language plpgsql security definer;
+
+-- NOTIFICATIONS
+create table public.notifications (
+  id uuid default uuid_generate_v4() primary key,
+  user_id uuid references public.profiles(id) not null,
+  title text not null,
+  message text not null,
+  type text default 'INFO', -- 'PRODUCT_STATUS', 'INFO', 'SALE'
+  is_read boolean default false,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Enable RLS for notifications
+alter table public.notifications enable row level security;
+
+create policy "Users can view their own notifications."
+  on notifications for select
+  using ( auth.uid() = user_id );
+
+create policy "System can insert notifications."
+  on notifications for insert
+  with check ( true ); -- Simplified for system-generated alerts
+
+create policy "Users can mark notifications as read."
+  on notifications for update
+  using ( auth.uid() = user_id );

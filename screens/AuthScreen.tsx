@@ -24,6 +24,9 @@ const AuthScreen: React.FC<AuthScreenProps> = () => {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [loginAttempts, setLoginAttempts] = useState(0);
+  const [lockoutTimer, setLockoutTimer] = useState(0);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resendTimer, setResendTimer] = useState(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -39,6 +42,18 @@ const AuthScreen: React.FC<AuthScreenProps> = () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [resendTimer]);
+
+  useEffect(() => {
+    let lockoutInterval: NodeJS.Timeout;
+    if (lockoutTimer > 0) {
+      lockoutInterval = setInterval(() => {
+        setLockoutTimer((prev) => prev - 1);
+      }, 1000);
+    } else if (lockoutTimer === 0 && loginAttempts >= 3) {
+      setLoginAttempts(0);
+    }
+    return () => clearInterval(lockoutInterval);
+  }, [lockoutTimer]);
 
   const mapSupabaseError = (err: any): string => {
     const msg = err.message?.toLowerCase() || '';
@@ -152,12 +167,27 @@ const AuthScreen: React.FC<AuthScreenProps> = () => {
     setIsLoading(true);
 
     try {
+      if (lockoutTimer > 0) {
+        setError(`Muitas tentativas. Tente novamente em ${lockoutTimer}s`);
+        setIsLoading(false);
+        return;
+      }
+
       if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
-        if (error) throw error;
+        if (error) {
+          const nextAttempts = loginAttempts + 1;
+          setLoginAttempts(nextAttempts);
+          if (nextAttempts >= 3) {
+            setLockoutTimer(30);
+            throw new Error('Muitas tentativas falhadas. Bloqueado por 30 segundos.');
+          }
+          throw error;
+        }
+        setLoginAttempts(0);
       } else {
         const { error } = await supabase.auth.signUp({
           email,
@@ -178,6 +208,23 @@ const AuthScreen: React.FC<AuthScreenProps> = () => {
       }
     } catch (err: any) {
       setError(mapSupabaseError(err));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      if (error) throw error;
+      setSuccess('E-mail de redefinição enviado! Verifique a sua caixa de entrada.');
+      setShowForgotPassword(false);
+    } catch (err: any) {
+      setError(err.message || 'Erro ao enviar e-mail de redefinição');
     } finally {
       setIsLoading(false);
     }
@@ -245,172 +292,211 @@ const AuthScreen: React.FC<AuthScreenProps> = () => {
           </div>
         </div>
 
-        <form onSubmit={handleAction} className="space-y-4">
-          {/* Status Messages */}
-          {error && (
-            <div className="bg-[#C00000]/10 border border-[#C00000]/30 text-[#C00000] px-4 py-3 rounded-2xl text-xs font-bold text-center animate-in fade-in duration-300">
-              {error}
+        {showForgotPassword ? (
+          <form onSubmit={handleResetPassword} className="space-y-4 animate-in slide-in-from-right duration-500">
+            {error && (
+              <div className="bg-[#C00000]/10 border border-[#C00000]/30 text-[#C00000] px-4 py-3 rounded-2xl text-xs font-bold text-center">
+                {error}
+              </div>
+            )}
+            {success && (
+              <div className="bg-green-500/10 border border-green-500/30 text-green-500 px-4 py-3 rounded-2xl text-xs font-bold text-center">
+                {success}
+              </div>
+            )}
+            <div className="relative group">
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-[#FFD700]" size={18} />
+              <input
+                required
+                type="email"
+                placeholder="O seu e-mail"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full bg-[#1A1A1A] border border-white/5 rounded-2xl py-4 pl-12 pr-4 outline-none focus:border-[#FFD700] transition-all font-bold text-sm"
+              />
             </div>
-          )}
-          {success && (
-            <div className="bg-green-500/10 border border-green-500/30 text-green-500 px-4 py-3 rounded-2xl text-xs font-bold text-center animate-in fade-in duration-300">
-              {success}
+            <button type="submit" disabled={isLoading} className="w-full bg-[#FFD700] text-black h-14 rounded-2xl font-black uppercase text-sm tracking-widest hover:bg-white active:scale-95 transition-all shadow-xl">
+              ENVIAR LINK DE RECUPERAÇÃO
+            </button>
+            <button type="button" onClick={() => setShowForgotPassword(false)} className="w-full text-white/40 text-[10px] font-black uppercase tracking-widest hover:text-[#FFD700]">Voltar ao Login</button>
+          </form>
+        ) : (
+          <form onSubmit={handleAction} className="space-y-4">
+            {/* Status Messages */}
+            {error && (
+              <div className="bg-[#C00000]/10 border border-[#C00000]/30 text-[#C00000] px-4 py-3 rounded-2xl text-xs font-bold text-center animate-in fade-in duration-300">
+                {error}
+              </div>
+            )}
+            {success && (
+              <div className="bg-green-500/10 border border-green-500/30 text-green-500 px-4 py-3 rounded-2xl text-xs font-bold text-center animate-in fade-in duration-300">
+                {success}
+              </div>
+            )}
+
+            {/* Login Method Toggle */}
+            <div className="flex bg-[#1A1A1A] p-1 rounded-2xl border border-white/5 mb-6">
+              <button
+                type="button"
+                onClick={() => { setLoginMethod('phone'); setShowOtp(false); setError(null); setSuccess(null); }}
+                className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${loginMethod === 'phone' ? 'bg-[#FFD700] text-black shadow-lg' : 'text-white/40 hover:text-white'}`}
+              >
+                Telefone
+              </button>
+              <button
+                type="button"
+                onClick={() => { setLoginMethod('email'); setError(null); setSuccess(null); }}
+                className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${loginMethod === 'email' ? 'bg-[#FFD700] text-black shadow-lg' : 'text-white/40 hover:text-white'}`}
+              >
+                E-mail
+              </button>
             </div>
-          )}
 
-          {/* Login Method Toggle */}
-          <div className="flex bg-[#1A1A1A] p-1 rounded-2xl border border-white/5 mb-6">
-            <button
-              type="button"
-              onClick={() => { setLoginMethod('phone'); setShowOtp(false); setError(null); setSuccess(null); }}
-              className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${loginMethod === 'phone' ? 'bg-[#FFD700] text-black shadow-lg' : 'text-white/40 hover:text-white'}`}
-            >
-              Telefone
-            </button>
-            <button
-              type="button"
-              onClick={() => { setLoginMethod('email'); setError(null); setSuccess(null); }}
-              className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${loginMethod === 'email' ? 'bg-[#FFD700] text-black shadow-lg' : 'text-white/40 hover:text-white'}`}
-            >
-              E-mail
-            </button>
-          </div>
-
-          <div className="space-y-3">
-            {loginMethod === 'phone' ? (
-              <>
-                <div className="relative group">
-                  <LogIn className={`absolute left-4 top-1/2 -translate-y-1/2 group-focus-within:text-[#FFD700] transition-colors ${error && !phoneNumber ? 'text-[#C00000]' : 'text-white/20'}`} size={18} />
-                  <div className="absolute left-12 top-1/2 -translate-y-1/2 text-[#FFD700] font-black text-sm">+244</div>
-                  <input
-                    required
-                    type="tel"
-                    maxLength={9}
-                    placeholder="Número de Telefone"
-                    value={phoneNumber}
-                    disabled={showOtp}
-                    onChange={(e) => { setPhoneNumber(e.target.value); setError(null); }}
-                    className={`w-full bg-[#1A1A1A] border rounded-2xl py-4 pl-24 pr-4 outline-none focus:border-[#FFD700] transition-all font-bold text-sm ${error && !phoneNumber ? 'border-[#C00000]' : 'border-white/5'} disabled:opacity-50`}
-                  />
-                </div>
-                {showOtp && (
-                  <>
-                    <div className="relative group animate-in slide-in-from-top-4 duration-300">
-                      <Lock className={`absolute left-4 top-1/2 -translate-y-1/2 group-focus-within:text-[#FFD700] transition-colors ${error && !otp ? 'text-[#C00000]' : 'text-white/20'}`} size={18} />
+            <div className="space-y-3">
+              {loginMethod === 'phone' ? (
+                <>
+                  <div className="relative group">
+                    <LogIn className={`absolute left-4 top-1/2 -translate-y-1/2 group-focus-within:text-[#FFD700] transition-colors ${error && !phoneNumber ? 'text-[#C00000]' : 'text-white/20'}`} size={18} />
+                    <div className="absolute left-12 top-1/2 -translate-y-1/2 text-[#FFD700] font-black text-sm">+244</div>
+                    <input
+                      required
+                      type="tel"
+                      maxLength={9}
+                      placeholder="Número de Telefone"
+                      value={phoneNumber}
+                      disabled={showOtp}
+                      onChange={(e) => { setPhoneNumber(e.target.value); setError(null); }}
+                      className={`w-full bg-[#1A1A1A] border rounded-2xl py-4 pl-24 pr-4 outline-none focus:border-[#FFD700] transition-all font-bold text-sm ${error && !phoneNumber ? 'border-[#C00000]' : 'border-white/5'} disabled:opacity-50`}
+                    />
+                  </div>
+                  {showOtp && (
+                    <>
+                      <div className="relative group animate-in slide-in-from-top-4 duration-300">
+                        <Lock className={`absolute left-4 top-1/2 -translate-y-1/2 group-focus-within:text-[#FFD700] transition-colors ${error && !otp ? 'text-[#C00000]' : 'text-white/20'}`} size={18} />
+                        <input
+                          required
+                          type="text"
+                          maxLength={6}
+                          placeholder="Código OTP (4-6 dígitos)"
+                          value={otp}
+                          onChange={(e) => { setOtp(e.target.value); setError(null); }}
+                          className={`w-full bg-[#1A1A1A] border rounded-2xl py-4 pl-12 pr-4 outline-none focus:border-[#FFD700] transition-all font-bold text-sm ${error && !otp ? 'border-[#C00000]' : 'border-white/5'}`}
+                        />
+                      </div>
+                      <div className="text-center">
+                        <button
+                          type="button"
+                          disabled={resendTimer > 0 || isLoading}
+                          onClick={handleResendOtp}
+                          className="text-[10px] font-black uppercase tracking-widest text-[#FFD700] hover:text-white transition-colors disabled:opacity-50"
+                        >
+                          {resendTimer > 0 ? `Reenviar em ${resendTimer}s` : 'Não recebi o código (Reenviar)'}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </>
+              ) : (
+                <>
+                  {!isLogin && (
+                    <div className="relative group animate-in slide-in-from-top-2 duration-300">
+                      <UserIcon className={`absolute left-4 top-1/2 -translate-y-1/2 group-focus-within:text-[#FFD700] transition-colors ${error && !fullName ? 'text-[#C00000]' : 'text-white/20'}`} size={18} />
                       <input
                         required
                         type="text"
-                        maxLength={6}
-                        placeholder="Código OTP (4-6 dígitos)"
-                        value={otp}
-                        onChange={(e) => { setOtp(e.target.value); setError(null); }}
-                        className={`w-full bg-[#1A1A1A] border rounded-2xl py-4 pl-12 pr-4 outline-none focus:border-[#FFD700] transition-all font-bold text-sm ${error && !otp ? 'border-[#C00000]' : 'border-white/5'}`}
+                        placeholder="Nome Completo"
+                        value={fullName}
+                        onChange={(e) => { setFullName(e.target.value); setError(null); }}
+                        className={`w-full bg-[#1A1A1A] border rounded-2xl py-4 pl-12 pr-4 outline-none focus:border-[#FFD700] transition-all font-bold text-sm ${error && !fullName ? 'border-[#C00000]' : 'border-white/5'}`}
                       />
                     </div>
-                    <div className="text-center">
+                  )}
+                  <div className="relative group">
+                    <Mail className={`absolute left-4 top-1/2 -translate-y-1/2 group-focus-within:text-[#FFD700] transition-colors ${error && !email ? 'text-[#C00000]' : 'text-white/20'}`} size={18} />
+                    <input
+                      required
+                      type="email"
+                      placeholder="E-mail"
+                      value={email}
+                      onChange={(e) => { setEmail(e.target.value); setError(null); }}
+                      className={`w-full bg-[#1A1A1A] border rounded-2xl py-4 pl-12 pr-4 outline-none focus:border-[#FFD700] transition-all font-bold text-sm ${error && !email ? 'border-[#C00000]' : 'border-white/5'}`}
+                    />
+                  </div>
+                  <div className="relative group">
+                    <Lock className={`absolute left-4 top-1/2 -translate-y-1/2 group-focus-within:text-[#FFD700] transition-colors ${error && password.length < 6 ? 'text-[#C00000]' : 'text-white/20'}`} size={18} />
+                    <input
+                      required
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Palavra-passe (mín. 6 caracteres)"
+                      value={password}
+                      onChange={(e) => { setPassword(e.target.value); setError(null); }}
+                      className={`w-full bg-[#1A1A1A] border rounded-2xl py-4 pl-12 pr-12 outline-none focus:border-[#FFD700] transition-all font-bold text-sm ${error && password.length < 6 ? 'border-[#C00000]' : 'border-white/5'}`}
+                    />
+                    {isLogin && (
                       <button
                         type="button"
-                        disabled={resendTimer > 0 || isLoading}
-                        onClick={handleResendOtp}
-                        className="text-[10px] font-black uppercase tracking-widest text-[#FFD700] hover:text-white transition-colors disabled:opacity-50"
+                        onClick={() => setShowForgotPassword(true)}
+                        className="absolute right-12 top-1/2 -translate-y-1/2 text-[9px] font-black uppercase text-[#FFD700] hover:text-white"
                       >
-                        {resendTimer > 0 ? `Reenviar em ${resendTimer}s` : 'Não recebi o código (Reenviar)'}
+                        Esqueceu?
                       </button>
-                    </div>
-                  </>
-                )}
-              </>
-            ) : (
-              <>
-                {!isLogin && (
-                  <div className="relative group animate-in slide-in-from-top-2 duration-300">
-                    <UserIcon className={`absolute left-4 top-1/2 -translate-y-1/2 group-focus-within:text-[#FFD700] transition-colors ${error && !fullName ? 'text-[#C00000]' : 'text-white/20'}`} size={18} />
-                    <input
-                      required
-                      type="text"
-                      placeholder="Nome Completo"
-                      value={fullName}
-                      onChange={(e) => { setFullName(e.target.value); setError(null); }}
-                      className={`w-full bg-[#1A1A1A] border rounded-2xl py-4 pl-12 pr-4 outline-none focus:border-[#FFD700] transition-all font-bold text-sm ${error && !fullName ? 'border-[#C00000]' : 'border-white/5'}`}
-                    />
-                  </div>
-                )}
-                <div className="relative group">
-                  <Mail className={`absolute left-4 top-1/2 -translate-y-1/2 group-focus-within:text-[#FFD700] transition-colors ${error && !email ? 'text-[#C00000]' : 'text-white/20'}`} size={18} />
-                  <input
-                    required
-                    type="email"
-                    placeholder="E-mail"
-                    value={email}
-                    onChange={(e) => { setEmail(e.target.value); setError(null); }}
-                    className={`w-full bg-[#1A1A1A] border rounded-2xl py-4 pl-12 pr-4 outline-none focus:border-[#FFD700] transition-all font-bold text-sm ${error && !email ? 'border-[#C00000]' : 'border-white/5'}`}
-                  />
-                </div>
-                <div className="relative group">
-                  <Lock className={`absolute left-4 top-1/2 -translate-y-1/2 group-focus-within:text-[#FFD700] transition-colors ${error && password.length < 6 ? 'text-[#C00000]' : 'text-white/20'}`} size={18} />
-                  <input
-                    required
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Palavra-passe (mín. 6 caracteres)"
-                    value={password}
-                    onChange={(e) => { setPassword(e.target.value); setError(null); }}
-                    className={`w-full bg-[#1A1A1A] border rounded-2xl py-4 pl-12 pr-12 outline-none focus:border-[#FFD700] transition-all font-bold text-sm ${error && password.length < 6 ? 'border-[#C00000]' : 'border-white/5'}`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 hover:text-[#FFD700] transition-colors"
-                  >
-                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-                {!isLogin && (
-                  <div className="relative group animate-in slide-in-from-top-2 duration-300">
-                    <ShieldCheck className={`absolute left-4 top-1/2 -translate-y-1/2 group-focus-within:text-[#FFD700] transition-colors ${error && confirmPassword !== password ? 'text-[#C00000]' : 'text-white/20'}`} size={18} />
-                    <input
-                      required
-                      type={showConfirmPassword ? "text" : "password"}
-                      placeholder="Confirmar Palavra-passe"
-                      value={confirmPassword}
-                      onChange={(e) => { setConfirmPassword(e.target.value); setError(null); }}
-                      className={`w-full bg-[#1A1A1A] border rounded-2xl py-4 pl-12 pr-12 outline-none focus:border-[#FFD700] transition-all font-bold text-sm ${error && confirmPassword !== password ? 'border-[#C00000]' : 'border-white/5'}`}
-                    />
+                    )}
                     <button
                       type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 hover:text-[#FFD700] transition-colors"
                     >
-                      {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
                   </div>
-                )}
-                {!isLogin && (
-                  <div className="flex items-center gap-3 px-2 py-1 animate-in slide-in-from-top-2 duration-300">
-                    <input
-                      type="checkbox"
-                      id="terms"
-                      checked={termsAccepted}
-                      onChange={(e) => setTermsAccepted(e.target.checked)}
-                      className="w-4 h-4 rounded border-white/5 bg-[#1A1A1A] accent-[#FFD700] cursor-pointer"
-                    />
-                    <label htmlFor="terms" className="text-[10px] text-white/40 cursor-pointer select-none">
-                      Aceito os <span className="text-[#FFD700] font-bold">Termos e Condições</span> de uso do AngoPlace.
-                    </label>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
+                  {!isLogin && (
+                    <div className="relative group animate-in slide-in-from-top-2 duration-300">
+                      <ShieldCheck className={`absolute left-4 top-1/2 -translate-y-1/2 group-focus-within:text-[#FFD700] transition-colors ${error && confirmPassword !== password ? 'text-[#C00000]' : 'text-white/20'}`} size={18} />
+                      <input
+                        required
+                        type={showConfirmPassword ? "text" : "password"}
+                        placeholder="Confirmar Palavra-passe"
+                        value={confirmPassword}
+                        onChange={(e) => { setConfirmPassword(e.target.value); setError(null); }}
+                        className={`w-full bg-[#1A1A1A] border rounded-2xl py-4 pl-12 pr-12 outline-none focus:border-[#FFD700] transition-all font-bold text-sm ${error && confirmPassword !== password ? 'border-[#C00000]' : 'border-white/5'}`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 hover:text-[#FFD700] transition-colors"
+                      >
+                        {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                  )}
+                  {!isLogin && (
+                    <div className="flex items-center gap-3 px-2 py-1 animate-in slide-in-from-top-2 duration-300">
+                      <input
+                        type="checkbox"
+                        id="terms"
+                        checked={termsAccepted}
+                        onChange={(e) => setTermsAccepted(e.target.checked)}
+                        className="w-4 h-4 rounded border-white/5 bg-[#1A1A1A] accent-[#FFD700] cursor-pointer"
+                      />
+                      <label htmlFor="terms" className="text-[10px] text-white/40 cursor-pointer select-none">
+                        Aceito os <span className="text-[#FFD700] font-bold">Termos e Condições</span> de uso do AngoPlace.
+                      </label>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
 
-          <button
-            disabled={isLoading}
-            type="submit"
-            className="w-full bg-[#FFD700] text-black h-14 rounded-2xl font-black uppercase text-sm tracking-widest flex items-center justify-center gap-2 hover:bg-white active:scale-95 transition-all shadow-xl shadow-yellow-500/10 disabled:opacity-50"
-          >
-            {isLoading ? 'Processando...' : (loginMethod === 'phone' ? (showOtp ? 'Verificar Código' : 'Gerar PIN SMS') : (isLogin ? 'Entrar Agora' : 'Criar Minha Conta'))}
-            {!isLoading && <ArrowRight size={20} />}
-          </button>
-        </form>
+            <button
+              disabled={isLoading}
+              type="submit"
+              className="w-full bg-[#FFD700] text-black h-14 rounded-2xl font-black uppercase text-sm tracking-widest flex items-center justify-center gap-2 hover:bg-white active:scale-95 transition-all shadow-xl shadow-yellow-500/10 disabled:opacity-50"
+            >
+              {isLoading ? 'Processando...' : (loginMethod === 'phone' ? (showOtp ? 'Verificar Código' : 'Gerar PIN SMS') : (isLogin ? 'Entrar Agora' : 'Criar Minha Conta'))}
+              {!isLoading && <ArrowRight size={20} />}
+            </button>
+          </form>
+        )}
 
         <div className="relative py-4">
           <div className="absolute inset-0 flex items-center">

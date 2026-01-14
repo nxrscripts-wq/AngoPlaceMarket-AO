@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { User, UserRole } from '../types';
-import { ChevronLeft, User as UserIcon, Bell, Shield, Moon, Globe, HelpCircle, Save } from 'lucide-react';
+import { ChevronLeft, User as UserIcon, Bell, Shield, Moon, Globe, HelpCircle, Save, Camera, Lock, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface SettingsScreenProps {
@@ -11,27 +11,91 @@ interface SettingsScreenProps {
 
 const SettingsScreen: React.FC<SettingsScreenProps> = ({ user, onBack, onUpdateUser }) => {
     const [name, setName] = useState(user?.name || '');
+    const [avatarUrl, setAvatarUrl] = useState(user?.avatar || '');
     const [isSaving, setIsSaving] = useState(false);
-    const [success, setSuccess] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+    const [success, setSuccess] = useState<string | null>(null);
+    const [error, setError] = useState<string | null>(null);
+
+    // Password change state
+    const [currentPassword, setCurrentPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [showPasswords, setShowPasswords] = useState(false);
+    const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
     const handleSave = async () => {
         if (!user) return;
         setIsSaving(true);
+        setError(null);
         try {
             const { error } = await supabase
                 .from('profiles')
-                .update({ full_name: name })
+                .update({ full_name: name, avatar_url: avatarUrl })
                 .eq('id', user.id);
 
             if (error) throw error;
 
-            onUpdateUser({ name });
-            setSuccess(true);
-            setTimeout(() => setSuccess(false), 3000);
-        } catch (err) {
-            console.error('Error updating profile:', err);
+            onUpdateUser({ name, avatar: avatarUrl });
+            setSuccess('Perfil atualizado com sucesso!');
+            setTimeout(() => setSuccess(null), 3000);
+        } catch (err: any) {
+            setError(err.message || 'Erro ao atualizar perfil');
         } finally {
             setIsSaving(false);
+        }
+    };
+
+    const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !user) return;
+
+        setIsUploading(true);
+        setError(null);
+        try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${user.id}-${Math.random()}.${fileExt}`;
+            const filePath = `avatars/${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('avatars')
+                .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('avatars')
+                .getPublicUrl(filePath);
+
+            setAvatarUrl(publicUrl);
+            setSuccess('Foto carregada! Salve para confirmar.');
+            setTimeout(() => setSuccess(null), 3000);
+        } catch (err: any) {
+            setError(err.message || 'Erro ao carregar imagem');
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    const handleChangePassword = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (newPassword.length < 6) {
+            setError('A nova palavra-passe deve ter pelo menos 6 caracteres');
+            return;
+        }
+
+        setIsUpdatingPassword(true);
+        setError(null);
+        try {
+            const { error } = await supabase.auth.updateUser({ password: newPassword });
+            if (error) throw error;
+            setSuccess('Palavra-passe alterada com sucesso!');
+            setNewPassword('');
+            setCurrentPassword('');
+            setTimeout(() => setSuccess(null), 3000);
+        } catch (err: any) {
+            setError(err.message || 'Erro ao alterar palavra-passe');
+        } finally {
+            setIsUpdatingPassword(false);
         }
     };
 
@@ -78,7 +142,33 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ user, onBack, onUpdateU
                 </button>
             </div>
 
-            <div className="p-4 space-y-8 pb-24">
+            <div className="p-4 space-y-8 pb-32">
+                {/* Avatar Section */}
+                <section className="flex flex-col items-center gap-4 py-4 animate-in zoom-in duration-500">
+                    <div className="relative group">
+                        <div className="w-24 h-24 rounded-full bg-[#1A1A1A] border-4 border-[#FFD700]/20 overflow-hidden relative shadow-2xl">
+                            {avatarUrl ? (
+                                <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center text-white/10 uppercase font-black text-xs">Sem Foto</div>
+                            )}
+                            {isUploading && (
+                                <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                                    <Loader2 size={24} className="text-[#FFD700] animate-spin" />
+                                </div>
+                            )}
+                        </div>
+                        <label className="absolute bottom-0 right-0 p-2 bg-[#FFD700] text-black rounded-full cursor-pointer hover:scale-110 active:scale-90 transition-all shadow-lg">
+                            <Camera size={16} />
+                            <input type="file" className="hidden" accept="image/*" onChange={handleAvatarUpload} disabled={isUploading} />
+                        </label>
+                    </div>
+                    <div className="text-center">
+                        <h4 className="font-black text-lg italic uppercase">{user?.name}</h4>
+                        <p className="text-[9px] text-white/30 font-black uppercase tracking-[0.3em]">{user?.role}</p>
+                    </div>
+                </section>
+
                 {/* Profile Edit Section */}
                 <section className="space-y-4">
                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 ml-2">Informação Básica</p>
@@ -90,7 +180,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ user, onBack, onUpdateU
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
                                 placeholder="Introduz o teu nome"
-                                className="w-full bg-black border border-white/5 rounded-2xl p-4 text-sm font-bold focus:border-[#FFD700] outline-none transition-all placeholder:text-white/10"
+                                className="w-full bg-black border border-white/5 rounded-2xl p-4 text-sm font-bold focus:border-[#FFD700] outline-none transition-all placeholder:text-white/10 hover-glow"
                             />
                         </div>
                         <div className="space-y-2">
@@ -105,9 +195,48 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ user, onBack, onUpdateU
                     </div>
                     {success && (
                         <div className="bg-green-500/10 border border-green-500/30 text-green-500 px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest text-center animate-in fade-in duration-300">
-                            Perfil atualizado com sucesso!
+                            {success}
                         </div>
                     )}
+                    {error && (
+                        <div className="bg-[#C00000]/10 border border-[#C00000]/30 text-[#C00000] px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest text-center animate-in fade-in duration-300">
+                            {error}
+                        </div>
+                    )}
+                </section>
+
+                {/* Security Section (Change Password) */}
+                <section className="space-y-4">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 ml-2">Segurança</p>
+                    <form onSubmit={handleChangePassword} className="bg-[#1A1A1A] rounded-3xl p-6 border border-white/5 space-y-5">
+                        <div className="space-y-4">
+                            <div className="relative group">
+                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" size={18} />
+                                <input
+                                    required
+                                    type={showPasswords ? "text" : "password"}
+                                    placeholder="Nova Palavra-passe"
+                                    value={newPassword}
+                                    onChange={(e) => setNewPassword(e.target.value)}
+                                    className="w-full bg-black border border-white/5 rounded-2xl py-4 pl-12 pr-12 outline-none focus:border-[#FFD700] transition-all font-bold text-sm hover-glow"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPasswords(!showPasswords)}
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 hover:text-[#FFD700]"
+                                >
+                                    {showPasswords ? <EyeOff size={18} /> : <Eye size={18} />}
+                                </button>
+                            </div>
+                            <button
+                                type="submit"
+                                disabled={isUpdatingPassword || !newPassword}
+                                className="w-full h-14 bg-white/5 border border-white/10 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-[#FFD700] hover:text-black transition-all disabled:opacity-20 flex items-center justify-center gap-2 premium-bounce shadow-lg"
+                            >
+                                {isUpdatingPassword ? <Loader2 size={16} className="animate-spin" /> : 'Atualizar Palavra-passe'}
+                            </button>
+                        </div>
+                    </form>
                 </section>
 
                 {/* Settings List */}

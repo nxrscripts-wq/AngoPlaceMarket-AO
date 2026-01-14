@@ -73,7 +73,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, user }) => {
         submittedBy: p.seller_id,
         sellerId: p.seller_id,
         description: p.description,
-        stock: p.stock
+        stock: p.stock,
+        location: p.location || ''
       }));
 
       setPendingProducts(mappedProducts);
@@ -180,6 +181,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, user }) => {
         details: `${action === 'APPROVE' ? 'Aprovado' : 'Rejeitado'}: ${product.name}. Obs: ${feedback || 'Sem comentários'}`
       };
 
+      // Send notification to seller
+      await supabase.from('notifications').insert({
+        user_id: product.sellerId,
+        title: action === 'APPROVE' ? 'Produto Aprovado! 🎉' : 'Produto Rejeitado ⚠️',
+        message: action === 'APPROVE'
+          ? `O seu produto "${product.name}" foi aprovado e já está visível no marketplace.`
+          : `O seu produto "${product.name}" não foi aprovado. Motivo: ${feedback || 'Não cumpre os requisitos.'}`,
+        type: 'PRODUCT_STATUS'
+      });
+
       alert(`Produto ${action === 'APPROVE' ? 'aprovado' : 'rejeitado'} com sucesso!`);
       setAuditLogs([newAction, ...auditLogs]);
       setPendingProducts(pendingProducts.filter(p => p.id !== productId));
@@ -228,6 +239,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, user }) => {
       if (error) throw error;
 
       setPendingShops(prev => prev.filter(s => s.id !== shopId));
+
+      // Send notification to shop owner
+      const shop = pendingShops.find(s => s.id === shopId);
+      if (shop) {
+        await supabase.from('notifications').insert({
+          user_id: shop.owner_id,
+          title: action === 'APPROVE' ? 'Loja Aprovada! 🏪' : 'Loja Rejeitada 🛑',
+          message: action === 'APPROVE'
+            ? `Parabéns! A sua loja "${shop.name}" foi verificada e aprovada.`
+            : `Lamentamos, mas a sua solicitação para a loja "${shop.name}" foi rejeitada.`,
+          type: 'SHOP_STATUS'
+        });
+      }
+
       alert(`Loja ${action === 'APPROVE' ? 'aprovada' : 'rejeitada'} com sucesso!`);
     } catch (err) {
       console.error(err);
