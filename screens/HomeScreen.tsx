@@ -57,9 +57,18 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onProductClick }) => {
           sellerId: p.seller_id,
           description: p.description,
           stock: p.stock,
+          location: p.location || '',
+          isFlashDeal: p.is_flash_deal,
           variations: p.variations
         }));
+
         setProducts(mappedProducts);
+
+        // If no flash deals exist, trigger a rotation (Magic!)
+        if (mappedProducts.filter(p => p.isFlashDeal).length === 0 && mappedProducts.length > 0) {
+          await supabase.rpc('rotate_flash_deals');
+          fetchApprovedProducts(); // Refetch to get updated deals
+        }
       }
     } catch (err) {
       console.error('Error fetching products:', err);
@@ -82,9 +91,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onProductClick }) => {
             Ver Tudo <ChevronRight size={16} />
           </div>
         </div>
-        <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar">
+        <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar snap-x">
           {products.filter(p => p.isFlashDeal).map(product => (
-            <div key={product.id} className="min-w-[160px]">
+            <div key={product.id} className="min-w-[160px] md:min-w-[200px] snap-start">
               <ProductCard product={product} onClick={onProductClick} />
             </div>
           ))}

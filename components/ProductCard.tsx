@@ -12,14 +12,14 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) => {
   const discount = product.oldPrice ? Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100) : null;
 
   return (
-    <div 
+    <div
       onClick={() => onClick?.(product)}
-      className="bg-[#1A1A1A] rounded-xl overflow-hidden group border border-white/5 hover:border-[#FFD700]/30 transition-all duration-300 flex flex-col h-full cursor-pointer active:scale-95"
+      className="bg-[#1A1A1A] rounded-xl overflow-hidden group border border-white/5 hover:border-[#FFD700]/30 transition-all duration-300 flex flex-col h-full cursor-pointer active:scale-95 touch-manipulation"
     >
       <div className="relative aspect-square overflow-hidden bg-white/5">
-        <img 
-          src={product.image} 
-          alt={product.name} 
+        <img
+          src={product.image}
+          alt={product.name}
           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
         />
         {discount && (
@@ -35,10 +35,10 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) => {
       </div>
 
       <div className="p-3 flex flex-col flex-grow">
-        <h4 className="text-sm font-medium line-clamp-2 text-white/90 mb-2 min-h-[40px] leading-tight">
+        <h4 className="text-xs md:text-sm font-medium line-clamp-2 text-white/90 mb-2 min-h-[32px] md:min-h-[40px] leading-tight">
           {product.name}
         </h4>
-        
+
         <div className="flex items-center gap-1 mb-2">
           <Star size={12} className="text-[#FFD700] fill-[#FFD700]" />
           <span className="text-[10px] text-white/60 font-bold">{product.rating} | {product.sales} vendidos</span>
@@ -51,11 +51,11 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) => {
             </span>
           )}
           <div className="flex items-center justify-between mt-1">
-            <span className="text-lg font-black text-[#FFD700]">
-              {product.price.toLocaleString()} <span className="text-xs">Kz</span>
+            <span className="text-base md:text-lg font-black text-[#FFD700]">
+              {product.price.toLocaleString()} <span className="text-[10px] md:text-xs">Kz</span>
             </span>
-            <div className="w-8 h-8 bg-[#FFD700] text-black rounded-lg flex items-center justify-center hover:bg-white transition-colors">
-              <ShoppingCart size={16} />
+            <div className="w-9 h-9 md:w-8 md:h-8 bg-[#FFD700] text-black rounded-lg flex items-center justify-center hover:bg-white transition-colors">
+              <ShoppingCart size={18} className="md:w-4 md:h-4" />
             </div>
           </div>
         </div>

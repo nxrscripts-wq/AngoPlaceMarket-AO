@@ -16,6 +16,9 @@ import SubmitProductScreen from './screens/SubmitProductScreen';
 import ProductDetailsScreen from './screens/ProductDetailsScreen';
 import ChatScreen from './screens/ChatScreen';
 import RegisterShopScreen from './screens/RegisterShopScreen';
+import SettingsScreen from './screens/SettingsScreen';
+import MyOrdersScreen from './screens/MyOrdersScreen';
+import CourierDashboard from './screens/CourierDashboard';
 import { MOCK_SELLERS, MOCK_PRODUCTS } from './constants';
 import { supabase } from './lib/supabase';
 
@@ -100,7 +103,11 @@ const AppContent: React.FC = () => {
       AppScreen.PROFILE,
       AppScreen.ADMIN,
       AppScreen.SUBMIT_PRODUCT,
-      AppScreen.CHAT_ROOM
+      AppScreen.CHAT_ROOM,
+      AppScreen.SHOP_REGISTRATION,
+      AppScreen.SETTINGS,
+      AppScreen.MY_ORDERS,
+      AppScreen.COURIER_DASHBOARD
     ];
 
     if (!user && protectedScreens.includes(currentScreen)) {
@@ -122,6 +129,9 @@ const AppContent: React.FC = () => {
           onLogout={() => { /* Logout handled in ProfileScreen via signOut */ setCurrentScreen(AppScreen.HOME); }}
           onSell={() => setCurrentScreen(AppScreen.SUBMIT_PRODUCT)}
           onRegisterShop={() => setCurrentScreen(AppScreen.SHOP_REGISTRATION)}
+          onSettings={() => setCurrentScreen(AppScreen.SETTINGS)}
+          onMyOrders={() => setCurrentScreen(AppScreen.MY_ORDERS)}
+          onCourierDashboard={() => setCurrentScreen(AppScreen.COURIER_DASHBOARD)}
         />
       );
       case AppScreen.ADMIN: return user ? <AdminDashboard user={user} onBack={() => setCurrentScreen(AppScreen.PROFILE)} /> : null;
@@ -158,6 +168,24 @@ const AppContent: React.FC = () => {
           }}
         />
       ) : null;
+      case AppScreen.SETTINGS: return user ? (
+        <SettingsScreen
+          user={user}
+          onBack={() => setCurrentScreen(AppScreen.PROFILE)}
+        />
+      ) : null;
+      case AppScreen.MY_ORDERS: return user ? (
+        <MyOrdersScreen
+          user={user}
+          onBack={() => setCurrentScreen(AppScreen.PROFILE)}
+        />
+      ) : null;
+      case AppScreen.COURIER_DASHBOARD: return user ? (
+        <CourierDashboard
+          user={user}
+          onBack={() => setCurrentScreen(AppScreen.PROFILE)}
+        />
+      ) : null;
       default: return <HomeScreen onProductClick={handleOpenProduct} />;
     }
   };
@@ -168,7 +196,11 @@ const AppContent: React.FC = () => {
     AppScreen.SUBMIT_PRODUCT,
     AppScreen.PRODUCT_DETAILS,
     AppScreen.CHAT_ROOM,
-    AppScreen.AUTH
+    AppScreen.AUTH,
+    AppScreen.SHOP_REGISTRATION,
+    AppScreen.SETTINGS,
+    AppScreen.MY_ORDERS,
+    AppScreen.COURIER_DASHBOARD
   ].includes(currentScreen);
 
   return (

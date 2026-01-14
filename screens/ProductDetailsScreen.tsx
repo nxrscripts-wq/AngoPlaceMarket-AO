@@ -92,8 +92,8 @@ const ProductDetailsScreen: React.FC<ProductDetailsScreenProps> = ({
   return (
     <div className="min-h-screen bg-[#0B0B0B] text-white pb-32 animate-in slide-in-from-right duration-300">
       {/* Top Navigation */}
-      <header className="fixed top-0 left-0 right-0 h-16 flex items-center justify-between px-4 z-50 bg-gradient-to-b from-black/80 to-transparent">
-        <button onClick={onBack} className="p-2 bg-black/50 rounded-full backdrop-blur-md">
+      <header className="fixed top-0 left-0 right-0 h-16 flex items-center justify-between px-4 z-50 bg-gradient-to-b from-black/80 to-transparent safe-area-top">
+        <button onClick={onBack} className="p-2 bg-black/50 rounded-full backdrop-blur-md active:scale-95 transition-all">
           <ArrowLeft size={20} />
         </button>
         <div className="flex gap-2">
@@ -108,7 +108,7 @@ const ProductDetailsScreen: React.FC<ProductDetailsScreenProps> = ({
       </header>
 
       {/* Main Image Slider */}
-      <div className="relative aspect-[3/1] bg-white/5 overflow-hidden">
+      <div className="relative aspect-square md:aspect-[3/1] bg-white/5 overflow-hidden">
         <img
           src={selectedImage}
           alt={product.name}
@@ -274,7 +274,8 @@ const ProductDetailsScreen: React.FC<ProductDetailsScreenProps> = ({
       </div>
 
       {/* Action Bar */}
-      <footer className="fixed bottom-0 left-0 right-0 h-24 bg-[#0B0B0B] border-t border-white/10 px-4 flex items-center gap-4 z-50 backdrop-blur-xl">
+      <footer className="fixed bottom-0 left-0 right-0 h-24 bg-[#0B0B0B] border-t border-white/10 px-4 flex items-center gap-4 z-50 backdrop-blur-xl pb-safe">
+        <style dangerouslySetInnerHTML={{ __html: `.pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }` }} />
         <button
           onClick={() => onChatWithSeller(displaySeller.id)}
           className="flex flex-col items-center justify-center text-white/50 hover:text-[#FFD700] transition-colors"

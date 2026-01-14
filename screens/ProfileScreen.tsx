@@ -11,11 +11,24 @@ interface ProfileScreenProps {
   onLogout: () => void;
   onSell: () => void;
   onRegisterShop: () => void;
+  onSettings: () => void;
+  onMyOrders: () => void;
+  onCourierDashboard: () => void;
 }
 
-const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onAdmin, onLogout, onSell, onRegisterShop }) => {
+const ProfileScreen: React.FC<ProfileScreenProps> = ({
+  user,
+  onAdmin,
+  onLogout,
+  onSell,
+  onRegisterShop,
+  onSettings,
+  onMyOrders,
+  onCourierDashboard
+}) => {
   const isAdmin = user?.role === UserRole.ADMIN || user?.role === UserRole.SUPER_ADMIN;
   const isShopOwner = user?.role === UserRole.SHOP_OWNER;
+  const isCourier = user?.role === ('COURIER' as UserRole);
 
   const menuItems = [
     { icon: Package, label: 'Meus Pedidos', sub: 'Rastrear encomendas' },
@@ -50,7 +63,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onAdmin, onLogout, 
             )}
           </div>
         </div>
-        <button className="p-2 bg-[#1A1A1A] rounded-full border border-white/5">
+        <button
+          onClick={onSettings}
+          className="p-2 bg-[#1A1A1A] rounded-full border border-white/5 active:scale-95 transition-all"
+        >
           <Settings size={20} />
         </button>
       </div>
@@ -95,7 +111,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onAdmin, onLogout, 
       {/* Main Menu */}
       <div className="bg-[#1A1A1A] rounded-2xl border border-white/5 divide-y divide-white/5 overflow-hidden">
         {menuItems.map((item, i) => (
-          <div key={i} className="flex items-center justify-between p-4 active:bg-white/5 transition-colors cursor-pointer group">
+          <div
+            key={i}
+            className="flex items-center justify-between p-4 active:bg-white/5 transition-colors cursor-pointer group"
+            onClick={() => {
+              if (item.label === 'Meus Pedidos') onMyOrders();
+            }}
+          >
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 bg-black rounded-xl flex items-center justify-center text-[#FFD700] group-hover:bg-[#C00000] group-hover:text-white transition-all">
                 <item.icon size={20} />
@@ -109,6 +131,25 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onAdmin, onLogout, 
           </div>
         ))}
       </div>
+
+      {/* Courier Quick Access */}
+      {isCourier && (
+        <div
+          className="bg-gradient-to-r from-[#C00000] to-black p-5 rounded-2xl flex items-center justify-between group cursor-pointer active:scale-95 transition-all shadow-xl shadow-red-500/10"
+          onClick={onCourierDashboard}
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center text-white">
+              <Package size={24} />
+            </div>
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-[#FFD700]">Portal do Entregador</p>
+              <p className="font-black text-lg uppercase leading-tight italic">Gerir Entregas</p>
+            </div>
+          </div>
+          <ChevronRight size={24} />
+        </div>
+      )}
 
       {/* Admin Quick Access */}
       {isAdmin && (

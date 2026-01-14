@@ -4,6 +4,8 @@ import { Search, Bell, ShoppingCart, Package, Clock, TrendingUp, Sparkles, X, Ch
 import BrandLogo from './BrandLogo';
 import { User } from '../types';
 import { useCart } from '../contexts/CartContext';
+import { useNotifications } from '../hooks/useNotifications';
+import NotificationDropdown from './NotificationDropdown';
 import { GoogleGenAI, Type } from '@google/genai';
 
 interface HeaderProps {
@@ -28,6 +30,11 @@ const Header: React.FC<HeaderProps> = ({ onSearchClick, onSellClick, onCartClick
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [isThinking, setIsThinking] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  // Notifications State
+  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+  const [showNotifications, setShowNotifications] = useState(false);
 
   const [history, setHistory] = useState<string[]>(() => {
     const saved = localStorage.getItem('apm_search_history');
@@ -38,6 +45,9 @@ const Header: React.FC<HeaderProps> = ({ onSearchClick, onSellClick, onCartClick
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsFocused(false);
+      }
+      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
+        setShowNotifications(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -148,7 +158,7 @@ const Header: React.FC<HeaderProps> = ({ onSearchClick, onSellClick, onCartClick
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-20 bg-[#0B0B0B] border-b border-white/10 z-50 flex items-center px-4 md:px-8 gap-4 md:gap-10 justify-between backdrop-blur-md bg-opacity-95">
+    <header className="fixed top-0 left-0 right-0 h-16 md:h-20 bg-[#0B0B0B] border-b border-white/10 z-50 flex items-center px-4 md:px-8 gap-2 md:gap-10 justify-between backdrop-blur-md bg-opacity-95">
       {/* Brand Section */}
       <div className="shrink-0 flex items-center">
         <BrandLogo variant="horizontal" size="lg" onClick={onLogoClick} className="hidden sm:flex" />
@@ -157,7 +167,7 @@ const Header: React.FC<HeaderProps> = ({ onSearchClick, onSellClick, onCartClick
 
       {/* Central Search Section */}
       <div className="flex-grow flex items-center justify-center relative" ref={dropdownRef}>
-        <div className={`w-full max-w-3xl bg-[#1A1A1A] h-12 rounded-2xl flex items-center px-5 gap-3 border transition-all group shadow-2xl ${isFocused ? 'border-[#FFD700] ring-4 ring-[#FFD700]/10 bg-[#222222]' : 'border-white/10'}`}>
+        <div className={`w-full max-w-3xl bg-[#1A1A1A] h-10 md:h-12 rounded-xl md:rounded-2xl flex items-center px-3 md:px-5 gap-2 md:gap-3 border transition-all group shadow-2xl ${isFocused ? 'border-[#FFD700] ring-4 ring-[#FFD700]/10 bg-[#222222]' : 'border-white/10'}`}>
           <Search size={20} className={isThinking ? 'text-[#C00000] animate-pulse' : isFocused ? 'text-[#FFD700]' : 'text-white/40'} />
           <input
             type="text"
@@ -179,7 +189,7 @@ const Header: React.FC<HeaderProps> = ({ onSearchClick, onSellClick, onCartClick
         </div>
 
         {isFocused && (
-          <div className="absolute top-14 left-0 right-0 bg-[#1A1A1A] border border-white/10 rounded-3xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-[60] max-w-3xl mx-auto">
+          <div className="fixed md:absolute top-16 md:top-14 left-0 right-0 bottom-0 md:bottom-auto bg-[#1A1A1A] border-t md:border border-white/10 md:rounded-3xl shadow-2xl overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200 z-[60] max-w-3xl mx-auto">
             <div className="p-2">
               {suggestions.length > 0 ? (
                 suggestions.map((item, idx) => (
@@ -225,7 +235,7 @@ const Header: React.FC<HeaderProps> = ({ onSearchClick, onSellClick, onCartClick
             title="Vender Produto"
           >
             <Package size={20} className="group-hover:scale-110 transition-transform" />
-            <span className="hidden lg:inline text-[10px] font-black uppercase tracking-widest">Vender Produto</span>
+            <span className="hidden xl:inline text-[10px] font-black uppercase tracking-widest">Vender Produto</span>
           </button>
         ) : (
           <button
@@ -238,17 +248,33 @@ const Header: React.FC<HeaderProps> = ({ onSearchClick, onSellClick, onCartClick
         )}
 
         {/* Notificações (Sino) - Oculto em mobile para priorizar o CTA principal */}
-        <div className="relative p-3 cursor-pointer text-white/60 hover:text-white hover:bg-white/5 rounded-2xl transition-all group border border-transparent hover:border-white/10 hidden sm:block">
-          <Bell size={22} className="group-hover:rotate-12 transition-transform" />
-          <span className="absolute top-2.5 right-2.5 w-4 h-4 bg-[#C00000] rounded-full text-[8px] flex items-center justify-center text-white font-black border-2 border-[#0B0B0B]">
-            3
-          </span>
+        <div className="relative" ref={notifRef}>
+          <button
+            onClick={() => setShowNotifications(!showNotifications)}
+            className={`p-3 cursor-pointer rounded-2xl transition-all group border border-transparent hover:border-white/10 hidden sm:block ${showNotifications ? 'bg-white/10 text-[#FFD700]' : 'text-white/60 hover:text-white hover:bg-white/5'}`}
+          >
+            <Bell size={22} className="group-hover:rotate-12 transition-transform" />
+            {unreadCount > 0 && (
+              <span className="absolute top-2.5 right-2.5 w-4 h-4 bg-[#C00000] rounded-full text-[8px] flex items-center justify-center text-white font-black border-2 border-[#0B0B0B]">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
+
+          {showNotifications && (
+            <NotificationDropdown
+              notifications={notifications}
+              onMarkAsRead={markAsRead}
+              onMarkAllAsRead={markAllAsRead}
+              onClose={() => setShowNotifications(false)}
+            />
+          )}
         </div>
 
         {/* Botão COMPRAR AGORA (Carrinho) - Destaque Amarelo persistente */}
         <button
           onClick={onCartClick}
-          className="relative flex items-center gap-2 px-5 py-3 bg-[#FFD700] text-black rounded-2xl hover:bg-white transition-all group shadow-xl shadow-[#FFD700]/20 border-none active:scale-95 transform duration-200"
+          className="relative flex items-center gap-2 p-3 md:px-5 md:py-3 bg-[#FFD700] text-black rounded-xl md:rounded-2xl hover:bg-white transition-all group shadow-xl shadow-[#FFD700]/20 border-none active:scale-95 transform duration-200"
           title="Comprar Agora"
         >
           <ShoppingCart size={22} className="group-hover:scale-110 transition-transform" strokeWidth={2.5} />

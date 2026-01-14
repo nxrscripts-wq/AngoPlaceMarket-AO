@@ -92,6 +92,7 @@ export interface Product {
   sellerId: string;
   description: string;
   stock: number;
+  location: string;
   variations?: ProductVariation[];
 }
 
@@ -122,7 +123,10 @@ export enum AppScreen {
   SUBMIT_PRODUCT = 'submit_product',
   PRODUCT_DETAILS = 'product_details',
   CHAT_ROOM = 'chat_room',
-  SHOP_REGISTRATION = 'shop_registration'
+  SHOP_REGISTRATION = 'shop_registration',
+  SETTINGS = 'settings',
+  MY_ORDERS = 'my_orders',
+  COURIER_DASHBOARD = 'courier_dashboard'
 }
 
 export interface SearchFilters {

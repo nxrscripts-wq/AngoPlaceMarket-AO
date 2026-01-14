@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { ArrowLeft, Camera, Package, Info, CheckCircle2, ChevronRight, AlertTriangle, X, ShieldCheck, Hash, Upload, Loader2 } from 'lucide-react';
+import { ArrowLeft, Camera, Package, Info, CheckCircle2, ChevronRight, AlertTriangle, X, ShieldCheck, Hash, Upload, Loader2, MapPin } from 'lucide-react';
 import { User } from '../types';
 import { supabase } from '../lib/supabase';
 
@@ -22,6 +22,7 @@ interface FormErrors {
   description?: boolean;
   stock?: boolean;
   image?: boolean;
+  location?: boolean;
 }
 
 const SubmitProductScreen: React.FC<SubmitProductScreenProps> = ({ onBack, user }) => {
@@ -29,6 +30,7 @@ const SubmitProductScreen: React.FC<SubmitProductScreenProps> = ({ onBack, user 
   const [price, setPrice] = useState('');
   const [category, setCategory] = useState('Eletrónicos');
   const [stock, setStock] = useState('0');
+  const [location, setLocation] = useState(user.location || '');
   const [description, setDescription] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -101,6 +103,12 @@ const SubmitProductScreen: React.FC<SubmitProductScreenProps> = ({ onBack, user 
       isValid = false;
     }
 
+    if (location.trim().length < 3) {
+      newErrors.location = true;
+      showToast("Por favor, indique a localização para entrega/recolha.", "error");
+      isValid = false;
+    }
+
     setErrors(newErrors);
     return isValid;
   };
@@ -144,6 +152,7 @@ const SubmitProductScreen: React.FC<SubmitProductScreenProps> = ({ onBack, user 
           category,
           image: publicUrl,
           stock: numStock,
+          location,
           seller_id: user.id,
           status: 'PENDENTE'
         });
@@ -331,6 +340,24 @@ const SubmitProductScreen: React.FC<SubmitProductScreenProps> = ({ onBack, user 
                   />
                   <Hash className="absolute left-4 top-1/2 -translate-y-1/2 text-[#FFD700]/40" size={16} />
                 </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase text-white/40 tracking-widest ml-1">Localização (Província / Bairro)</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={location}
+                  onChange={(e) => {
+                    setLocation(e.target.value);
+                    if (errors.location) setErrors({ ...errors, location: false });
+                  }}
+                  placeholder="Ex: Luanda, Talatona"
+                  className={`w-full bg-[#1A1A1A] border rounded-2xl p-4 pl-12 text-sm font-bold outline-none transition-all ${errors.location ? 'border-[#C00000] ring-2 ring-[#C00000]/10' : 'border-white/5 focus:border-[#FFD700]'
+                    }`}
+                />
+                <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-[#FFD700]/40" size={16} />
               </div>
             </div>
 
