@@ -35,10 +35,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onProductClick }) => {
     try {
       const { data, error } = await supabase
         .from('products')
-        .select(`
-          *,
-          categories:category_id(name)
-        `)
+        .select(`*`)
         .eq('status', ProductStatus.PUBLICADO)
         .order('created_at', { ascending: false });
 
@@ -51,7 +48,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onProductClick }) => {
           price: p.price,
           oldPrice: p.old_price,
           image: p.image,
-          category: p.categories?.name || 'Geral',
+          category: p.category || 'Geral',
           rating: p.rating || 0,
           sales: p.sales || 0,
           isInternational: p.is_international || false,

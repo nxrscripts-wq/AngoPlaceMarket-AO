@@ -180,10 +180,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, user }) => {
         details: `${action === 'APPROVE' ? 'Aprovado' : 'Rejeitado'}: ${product.name}. Obs: ${feedback || 'Sem comentários'}`
       };
 
+      alert(`Produto ${action === 'APPROVE' ? 'aprovado' : 'rejeitado'} com sucesso!`);
       setAuditLogs([newAction, ...auditLogs]);
       setPendingProducts(pendingProducts.filter(p => p.id !== productId));
     } catch (err: any) {
       console.error('Error updating product status:', err);
+      alert(`Erro ao atualizar produto: ${err.message}`);
     }
   };
 
