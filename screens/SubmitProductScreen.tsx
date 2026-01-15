@@ -3,6 +3,7 @@ import React, { useState, useRef } from 'react';
 import { ArrowLeft, Camera, Package, Info, CheckCircle2, ChevronRight, AlertTriangle, X, ShieldCheck, Hash, Upload, Loader2, MapPin } from 'lucide-react';
 import { User } from '../types';
 import { supabase } from '../lib/supabase';
+import { CATEGORIES, SUB_CATEGORIES } from '../lib/categories';
 
 interface SubmitProductScreenProps {
   onBack: () => void;
@@ -28,7 +29,8 @@ interface FormErrors {
 const SubmitProductScreen: React.FC<SubmitProductScreenProps> = ({ onBack, user }) => {
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
-  const [category, setCategory] = useState('Eletrónicos');
+  const [category, setCategory] = useState(CATEGORIES[0].name);
+  const [subCategory, setSubCategory] = useState(SUB_CATEGORIES[CATEGORIES[0].name][0]);
   const [stock, setStock] = useState('0');
   const [location, setLocation] = useState(user.location || '');
   const [description, setDescription] = useState('');
@@ -150,6 +152,7 @@ const SubmitProductScreen: React.FC<SubmitProductScreenProps> = ({ onBack, user 
           price: numPrice,
           description,
           category,
+          sub_category: subCategory,
           image: publicUrl,
           stock: numStock,
           location,
@@ -361,21 +364,40 @@ const SubmitProductScreen: React.FC<SubmitProductScreenProps> = ({ onBack, user 
               </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase text-white/40 tracking-widest ml-1">Categoria Principal</label>
-              <div className="relative">
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="w-full bg-[#1A1A1A] border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-[#FFD700] transition-all appearance-none cursor-pointer"
-                >
-                  <option>Eletrónicos</option>
-                  <option>Moda</option>
-                  <option>Casa e Lazer</option>
-                  <option>Peças Auto</option>
-                  <option>Energia Solar</option>
-                </select>
-                <ChevronRight size={16} className="absolute right-4 top-1/2 -translate-y-1/2 rotate-90 text-white/20 pointer-events-none" />
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-white/40 tracking-widest ml-1">Categoria Principal</label>
+                <div className="relative">
+                  <select
+                    value={category}
+                    onChange={(e) => {
+                      setCategory(e.target.value);
+                      setSubCategory(SUB_CATEGORIES[e.target.value][0]);
+                    }}
+                    className="w-full bg-[#1A1A1A] border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-[#FFD700] transition-all appearance-none cursor-pointer"
+                  >
+                    {CATEGORIES.map(cat => (
+                      <option key={cat.id} value={cat.name}>{cat.name}</option>
+                    ))}
+                  </select>
+                  <ChevronRight size={16} className="absolute right-4 top-1/2 -translate-y-1/2 rotate-90 text-white/20 pointer-events-none" />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-white/40 tracking-widest ml-1">Sub-Categoria</label>
+                <div className="relative">
+                  <select
+                    value={subCategory}
+                    onChange={(e) => setSubCategory(e.target.value)}
+                    className="w-full bg-[#1A1A1A] border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-[#FFD700] transition-all appearance-none cursor-pointer"
+                  >
+                    {(SUB_CATEGORIES[category] || []).map(sub => (
+                      <option key={sub} value={sub}>{sub}</option>
+                    ))}
+                  </select>
+                  <ChevronRight size={16} className="absolute right-4 top-1/2 -translate-y-1/2 rotate-90 text-white/20 pointer-events-none" />
+                </div>
               </div>
             </div>
 

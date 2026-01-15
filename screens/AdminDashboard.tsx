@@ -74,7 +74,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, user }) => {
         sellerId: p.seller_id,
         description: p.description,
         stock: p.stock,
-        location: p.location || ''
+        location: p.location || '',
+        subCategory: p.sub_category
       }));
 
       setPendingProducts(mappedProducts);

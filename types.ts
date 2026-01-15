@@ -74,6 +74,14 @@ export interface ProductVariation {
   options: string[];
 }
 
+export interface SubCategory {
+  id: string;
+  categoryId: string;
+  name: string;
+  slug: string;
+  imageUrl?: string;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -93,6 +101,7 @@ export interface Product {
   description: string;
   stock: number;
   location: string;
+  subCategory?: string;
   variations?: ProductVariation[];
 }
 

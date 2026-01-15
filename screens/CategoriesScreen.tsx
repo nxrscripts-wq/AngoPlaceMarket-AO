@@ -1,19 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
-import { Smartphone, Shirt, Home, Camera, Car, Gamepad2, Baby, Search, ChevronRight, Loader2 } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Loader2, Search } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { Product, ProductStatus } from '../types';
 import ProductCard from '../components/ProductCard';
-
-const CATEGORIES = [
-  { id: '1', name: 'Eletrónicos', icon: Smartphone, count: '1.2k+ produtos' },
-  { id: '2', name: 'Moda e Vestuário', icon: Shirt, count: '3k+ produtos' },
-  { id: '3', name: 'Casa e Lazer', icon: Home, count: '850 produtos' },
-  { id: '4', name: 'Fotografia', icon: Camera, count: '420 produtos' },
-  { id: '5', name: 'Peças Auto', icon: Car, count: '2.1k+ produtos' },
-  { id: '6', name: 'Gaming', icon: Gamepad2, count: '310 produtos' },
-  { id: '7', name: 'Bebé e Kids', icon: Baby, count: '1.1k+ produtos' },
-];
+import { CATEGORIES, SUB_CATEGORIES as MOCK_SUB_CATEGORIES } from '../lib/categories';
 
 interface CategoriesScreenProps {
   onProductClick?: (p: Product) => void;
@@ -21,22 +12,29 @@ interface CategoriesScreenProps {
 
 const CategoriesScreen: React.FC<CategoriesScreenProps> = ({ onProductClick }) => {
   const [activeCategory, setActiveCategory] = useState('1');
+  const [activeSubCategory, setActiveSubCategory] = useState<string | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const currentCategory = CATEGORIES.find(c => c.id === activeCategory);
+  const subCategories = currentCategory ? MOCK_SUB_CATEGORIES[currentCategory.name] || [] : [];
 
   useEffect(() => {
     const fetchProducts = async () => {
       if (!currentCategory) return;
       setIsLoading(true);
       try {
-        const { data, error } = await supabase
+        let query = supabase
           .from('products')
           .select('*')
           .eq('status', ProductStatus.PUBLICADO)
-          .eq('category', currentCategory.name)
-          .limit(10);
+          .eq('category', currentCategory.name);
+
+        if (activeSubCategory) {
+          query = query.eq('sub_category', activeSubCategory);
+        }
+
+        const { data, error } = await query.limit(20);
 
         if (error) throw error;
 
@@ -67,7 +65,12 @@ const CategoriesScreen: React.FC<CategoriesScreenProps> = ({ onProductClick }) =
     };
 
     fetchProducts();
-  }, [activeCategory]);
+  }, [activeCategory, activeSubCategory]);
+
+  const handleCategoryChange = (catId: string) => {
+    setActiveCategory(catId);
+    setActiveSubCategory(null);
+  };
 
   return (
     <div className="flex h-full animate-in fade-in duration-300">
@@ -79,7 +82,7 @@ const CategoriesScreen: React.FC<CategoriesScreenProps> = ({ onProductClick }) =
           return (
             <button
               key={cat.id}
-              onClick={() => setActiveCategory(cat.id)}
+              onClick={() => handleCategoryChange(cat.id)}
               className={`flex flex-col items-center py-5 px-1 transition-all duration-300 ${isActive ? 'bg-[#1A1A1A] border-l-4 border-[#FFD700] text-[#FFD700]' : 'text-white/40'}`}
             >
               <Icon size={24} strokeWidth={isActive ? 2.5 : 2} />
@@ -92,14 +95,24 @@ const CategoriesScreen: React.FC<CategoriesScreenProps> = ({ onProductClick }) =
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-grow p-4 space-y-6 overflow-y-auto bg-[#1A1A1A]">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-black italic uppercase tracking-tighter">
-            {CATEGORIES.find(c => c.id === activeCategory)?.name}
-          </h2>
-          <span className="text-[10px] text-white/40 font-bold uppercase tracking-widest">
-            {CATEGORIES.find(c => c.id === activeCategory)?.count}
-          </span>
+      <div className="flex-grow p-4 space-y-6 overflow-y-auto bg-[#1A1A1A] no-scrollbar">
+        <div className="flex flex-col gap-2">
+          {activeSubCategory && (
+            <button
+              onClick={() => setActiveSubCategory(null)}
+              className="flex items-center gap-1 text-[#FFD700] text-[10px] font-black uppercase tracking-widest mb-2 active:scale-95 transition-all"
+            >
+              <ArrowLeft size={14} /> Voltar para Sub-categorias
+            </button>
+          )}
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-black italic uppercase tracking-tighter">
+              {activeSubCategory || currentCategory?.name}
+            </h2>
+            <span className="text-[10px] text-white/40 font-bold uppercase tracking-widest">
+              {products.length} Resultados
+            </span>
+          </div>
         </div>
 
         {/* Promo Sub-Banner */}
@@ -113,25 +126,32 @@ const CategoriesScreen: React.FC<CategoriesScreenProps> = ({ onProductClick }) =
         </div>
 
         {/* Sub-categories Grid */}
-        <div className="grid grid-cols-2 gap-4">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="space-y-2 group cursor-pointer">
-              <div className="aspect-square bg-black rounded-2xl overflow-hidden border border-white/5 relative group-hover:border-[#FFD700]/50 transition-all">
-                <img src={`https://picsum.photos/seed/cat${activeCategory}${i}/300`} alt="subcat" className="w-full h-full object-cover opacity-60 group-hover:scale-110 transition-transform duration-500" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
-                <div className="absolute bottom-3 left-3 right-3">
-                  <p className="text-xs font-black uppercase tracking-tighter line-clamp-1">Sub-Categoria {i}</p>
+        {!activeSubCategory && (
+          <div className="grid grid-cols-2 gap-4 animate-in slide-in-from-right duration-500">
+            {subCategories.map((sub, i) => (
+              <div
+                key={sub}
+                className="space-y-2 group cursor-pointer"
+                onClick={() => setActiveSubCategory(sub)}
+              >
+                <div className="aspect-[4/3] bg-black rounded-2xl overflow-hidden border border-white/5 relative group-hover:border-[#FFD700]/50 transition-all hover-glow">
+                  <img src={`https://picsum.photos/seed/sub${activeCategory}${i}/300`} alt={sub} className="w-full h-full object-cover opacity-60 group-hover:scale-110 transition-transform duration-500" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
+                  <div className="absolute bottom-3 left-3 right-3">
+                    <p className="text-[10px] font-black uppercase tracking-tighter line-clamp-1">{sub}</p>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
         {/* Products Grid */}
         <div className="space-y-4 pt-4 pb-12">
           <div className="flex items-center justify-between px-1">
-            <h4 className="text-[10px] font-black text-white/30 uppercase tracking-widest">Descobrir Produtos</h4>
-            <button className="text-[9px] font-black text-[#FFD700] uppercase">Ver Todos</button>
+            <h4 className="text-[10px] font-black text-white/30 uppercase tracking-widest">
+              {activeSubCategory ? `Produtos em ${activeSubCategory}` : 'Produtos em Destaque'}
+            </h4>
           </div>
 
           {isLoading ? (

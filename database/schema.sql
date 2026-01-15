@@ -87,11 +87,29 @@ create table public.products (
   is_flash_deal boolean default false, -- Added for HomeScreen deals
   status text default 'PENDENTE', -- Added: 'PENDENTE', 'PUBLICADO', 'REJEITADO'
   location text, -- Added for delivery location
+  sub_category text, -- Added for sub-category filtering
   variations jsonb, -- JSONB to store flexible variations like { "Color": ["Red", "Blue"] }
   stock integer default 0,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
+
+-- SUB_CATEGORIES
+create table public.sub_categories (
+  id uuid default uuid_generate_v4() primary key,
+  category_id uuid references public.categories(id) not null,
+  name text not null,
+  slug text not null,
+  image_url text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Enable RLS for sub_categories
+alter table public.sub_categories enable row level security;
+
+create policy "Sub-categories are viewable by everyone."
+  on sub_categories for select
+  using ( true );
 
 -- Enable RLS for products
 alter table public.products enable row level security;
